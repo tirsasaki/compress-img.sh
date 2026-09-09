@@ -147,3 +147,4 @@ Kalau opsi `-d` dipakai, file asli (`foto/banner.png`, dst.) akan dihapus **sete
 
 Bebas digunakan dan dimodifikasi sesuai kebutuhan.
 ya bebas, sesuai deskripsi
+kita lanjut ke tahap berikutnya
