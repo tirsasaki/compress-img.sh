@@ -146,4 +146,4 @@ Kalau opsi `-d` dipakai, file asli (`foto/banner.png`, dst.) akan dihapus **sete
 ## 📄 Lisensi
 
 Bebas digunakan dan dimodifikasi sesuai kebutuhan.
-ya bebas
+ya bebas, sesuai deskripsi
