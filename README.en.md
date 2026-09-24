@@ -1,101 +1,130 @@
 # compress-img.sh
 
-A Bash script to batch-compress images (**PNG, JPG/JPEG, WebP**) in parallel (multi-core), with support for multiple folders, recursive mode, and an option to automatically delete the original files after successful compression.
+A Bash script for compressing **PNG, JPG/JPEG, and WebP** images in parallel. It tries to bring every file below a configurable size limit (**2 MB** by default) and never saves a result larger than the original.
+
+[Versi Bahasa Indonesia](README.md)
 
 ## ✨ Features
 
-- Compress **PNG**, **JPG/JPEG**, and **WebP** in a single command
-- **Parallel** processing using all CPU cores (`xargs -P$(nproc)`)
-- Process **multiple folders at once**
-- **Recursive mode** (`-r`) — automatically finds every subfolder that contains images
-- Option to **delete the original files** (`-d`) after successful compression — no need to delete them manually one by one
-- Original files are **never deleted** if compression fails or the result isn't smaller
-- Compressed output is saved separately in a `compressed/` subfolder, never overwriting the originals
-- Before/after size summary per folder and for the whole run
+- Processes PNG, JPG/JPEG, and WebP in one command
+- Targets a maximum per-file size with the `-m` option
+- Progressively lowers quality and, when needed, resolution until the size limit is met
+- Keeps the smallest attempted result; if none is smaller, copies the original unchanged
+- Processes files in parallel using all available CPU cores
+- Supports multiple folders and recursive subfolder discovery
+- Writes results to a separate `compressed/` subfolder without overwriting source files
+- Can delete a source file only after its output is saved and meets the active size limit
+- Reports size statistics per file, per folder, and for the full run
 
 ## 📦 Requirements
 
-The script calls an external tool depending on the image format:
+The script targets GNU/Linux environments with Bash and standard utilities such as `find`, `xargs`, `awk`, `stat`, `numfmt`, and `nproc`.
 
-| Format | Tool | Install (Arch/Manjaro) |
+Install the compression tool for every format you want to process:
+
+| Format | Tool | Arch/Manjaro package |
 |---|---|---|
-| PNG | [`pngquant`](https://pngquant.org/) | `sudo pacman -S pngquant` |
-| JPG/JPEG | [`jpegoptim`](https://github.com/tjko/jpegoptim) | `sudo pacman -S jpegoptim` |
-| WebP | [`cwebp`](https://developers.google.com/speed/webp/docs/cwebp) (from `libwebp`) | `sudo pacman -S libwebp` |
+| PNG | [`pngquant`](https://pngquant.org/) | `pngquant` |
+| JPG/JPEG | [`jpegoptim`](https://github.com/tjko/jpegoptim) | `jpegoptim` |
+| WebP | [`cwebp`](https://developers.google.com/speed/webp/docs/cwebp) | `libwebp` |
 
-Install all three at once:
+Install all three on Arch/Manjaro:
 
 ```bash
 sudo pacman -S pngquant jpegoptim libwebp
 ```
 
-> For other distros, use your package manager instead (`apt`, `dnf`, `brew`, etc.). Package names are usually the same.
+If a tool is unavailable, the script continues but skips files in the corresponding format.
 
-If one of the tools isn't installed, the script still runs — only files of that format will be skipped, with a warning shown at the start.
+### ImageMagick (optional, recommended)
+
+[`ImageMagick`](https://imagemagick.org/) is used as a final fallback to reduce image dimensions when lowering quality is not enough to reach the `-m` limit.
+
+```bash
+sudo pacman -S imagemagick
+```
+
+Without ImageMagick, a file that remains above the limit after quality reduction is still written to `compressed/`, reported as not meeting the limit, and retained at its source location. The script supports both the `magick` and legacy `convert` commands.
+
+On other distributions, use the appropriate package manager and package names.
 
 ## 🚀 Installation
 
-1. Clone or download this repo
-2. Make it executable:
-
 ```bash
+git clone https://github.com/tirsasaki/compress-img.sh.git
+cd compress-img.sh
 chmod +x compress-img.sh
 ```
 
-3. (Optional) Move it into a folder that's on your `$PATH` so you can run it from anywhere:
+Optionally, install it in a directory on your `$PATH`:
 
 ```bash
-sudo mv compress-img.sh /usr/local/bin/compress-img
+sudo install -m 755 compress-img.sh /usr/local/bin/compress-img
 ```
 
 ## 🛠️ Usage
 
-```bash
-./compress-img.sh [-q min-max] [-j quality] [-w quality] [-r] [-d] [folder1 folder2 ...]
+```text
+./compress-img.sh [-q min-max] [-j quality] [-w quality] [-m MB] [-r] [-d] [folder ...]
 ```
+
+When no folder is given, the script processes the current directory (`.`).
 
 ### Options
 
 | Option | Description | Default |
 |---|---|---|
-| `-q min-max` | `pngquant` quality for PNG | `85-95` |
-| `-j quality` | `jpegoptim` quality for JPG/JPEG (0–100) | `85` |
-| `-w quality` | `cwebp` quality for WebP (0–100) | `85` |
-| `-r` | Recursive mode — process every subfolder that contains images | off |
-| `-d` | Delete original files after successful compression | off |
+| `-q min-max` | Initial `pngquant` quality range for PNG | `85-95` |
+| `-j quality` | Initial `jpegoptim` quality for JPG/JPEG, `1-100` | `85` |
+| `-w quality` | Initial `cwebp` quality for WebP, `1-100` | `85` |
+| `-m MB` | Maximum size per file in MB; decimals are allowed, use `0` to disable the limit | `2` |
+| `-r` | Find every subfolder containing images; `compressed/` subfolders are skipped | off |
+| `-d` | Delete a source file after its output is saved and meets the active size limit | off |
+| `-h` | Show help | — |
 
-If no folder is given, the script processes the current folder (`.`).
+The `-m` value is calculated as MiB (`1 MB = 1024 × 1024 bytes`). With an active limit, the internal JPG/JPEG and WebP target is set to 95% of that limit to leave a small margin.
 
 ### Examples
 
 ```bash
-# Current folder, all formats, default quality
+# Current directory, default 2 MB limit per file
 ./compress-img.sh
 
-# One folder
-./compress-img.sh ./photos
+# Multiple directories at once
+./compress-img.sh ./photos ./banners ./icons
 
-# Multiple folders at once
-./compress-img.sh ./photos ./banner ./icon
+# Maximum 1.5 MB per file
+./compress-img.sh -m 1.5 ./photos
 
-# Custom quality per format
+# Custom initial quality for every format
 ./compress-img.sh -q 70-90 -j 80 -w 80 ./photos
 
-# Recursive mode — every subfolder inside ./assets gets processed
+# Every subfolder inside ./assets
 ./compress-img.sh -r ./assets
 
-# Compress and immediately delete the originals (no manual cleanup)
-./compress-img.sh -d ./photos
+# Recurse and delete sources that successfully meet a 1 MB limit
+./compress-img.sh -m 1 -r -d ./assets
 
-# Full combo: recursive + custom quality + delete originals
-./compress-img.sh -q 70-90 -j 80 -w 80 -r -d ./assets
+# Disable the size limit; only perform the initial quality pass
+./compress-img.sh -m 0 ./photos
 ```
 
-## 📁 Output Structure
+## ⚙️ How it works
 
-Compressed output is saved in a `compressed/` subfolder inside the input folder, keeping the same file names:
+For each file, the script:
 
-```
+1. tries compression at the quality supplied through `-q`, `-j`, or `-w`;
+2. if the result is still above `-m`, progressively lowers quality or uses the compressor's target-size mode;
+3. if the result is still too large and ImageMagick is available, tries resolution scales of `85%`, `70%`, `60%`, `50%`, `40%`, `30%`, and `20%`;
+4. saves the smallest candidate to `compressed/`, or copies the original when no candidate is smaller.
+
+Processing stops early as soon as the best candidate meets the limit. With `-m 0`, additional quality reduction and resizing are skipped.
+
+## 📁 Output structure
+
+Each input directory gets its own `compressed/` subfolder:
+
+```text
 photos/
 ├── banner.png
 ├── logo.jpg
@@ -106,41 +135,46 @@ photos/
     └── icon.webp
 ```
 
-When `-d` is used, the original file (`photos/banner.png`, etc.) is deleted **after** its compressed version has been successfully saved to `compressed/`.
+An existing file with the same name in `compressed/` is replaced. In recursive mode, directories named `compressed` and their contents are not processed again.
 
-## ⚠️ Safety Notes
+## ⚠️ Deletion and exit status
 
-- Original files are **only deleted** when `-d` is enabled **and** compression for that specific file succeeded.
-- If compression fails (missing tool, corrupt file, etc.) or the result isn't smaller than the original, the original file is **not** deleted.
-- It's recommended to first run **without** `-d` on a small test folder to confirm the compression results look right, before running `-d` on many folders at once.
+- Without `-d`, source files are always retained.
+- With `-d`, a source file is deleted only when a non-empty output has been saved and does not exceed the active `-m` limit.
+- Files that do not meet the limit are never deleted and are listed in the failure summary.
+- With `-m 0`, there is no size limit to meet, so `-d` removes the source after the output is saved—even when the file was copied unchanged because it was already optimal.
+- The script exits with status `2` if any file remains above the limit, and status `1` for invalid input/options or when no directory containing images is found.
 
-## 📊 Example Output
+Test on a small directory without `-d` before deleting many source files.
 
-```
-🗂️  Total folders to process: 1
+## 📊 Example output
+
+The script's runtime messages are currently in Indonesian:
+
+```text
+🗂️  Total folder yang akan diproses: 1
    - ./photos
-🎚️  PNG quality  : 85-95
-🎚️  JPG quality  : 85
-🎚️  WebP quality : 85
-🗑️  Delete-original mode: ON (originals will be removed after successful compression)
+🎚️  Quality PNG  : 85-95
+🎚️  Quality JPG  : 85
+🎚️  Quality WebP : 85
+🎯 Batas ukuran per file: 2.0MB
 
 ──────────────────────────────────────────
-📂 Input folder   : ./photos
-📦 Output folder  : ./photos/compressed
-🔢 File count      : 12
+📂 Folder input  : ./photos
+📦 Folder output : ./photos/compressed
+🔢 Jumlah file   : 3
 
-✅ banner.png
-✅ logo.jpg
-✅ icon.webp
-...
+✅ banner.png  3.2MB → 1.8MB (-44%) · kualitas diturunkan
+✅ logo.jpg  4.1MB → 1.9MB (-54%)
+✅ icon.webp  900KB → 420KB (-53%)
 
-📊 Size before : 24M
-📊 Size after  : 9.1M
+📊 Ukuran sebelum : 8.2MB
+📊 Ukuran sesudah : 4.1MB
 
 ════════════════════════════════════════
-🎉 Done! Processed 1 folder(s) in total.
-📊 Total size before : 24M
-📊 Total size after  : 9.1M
+🎉 Selesai! Total 1 folder diproses.
+📊 Total ukuran sebelum : 8.2MB
+📊 Total ukuran sesudah : 4.1MB
 ```
 
 ## 📄 License
