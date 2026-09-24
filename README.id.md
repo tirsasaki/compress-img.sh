@@ -1,8 +1,17 @@
-# compress-img.sh
+<h1 align="center">
+  <img src="assets/logo.svg" alt="compress-img.sh" width="640">
+</h1>
+
+<p align="center">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green">
+  <img alt="Bash 4+" src="https://img.shields.io/badge/bash-4%2B-4EAA25?logo=gnubash&logoColor=white">
+  <img alt="Platform: Linux" src="https://img.shields.io/badge/platform-linux-lightgrey?logo=linux&logoColor=white">
+  <img alt="Formats: PNG, JPG, WebP" src="https://img.shields.io/badge/formats-PNG%20%7C%20JPG%20%7C%20WebP-blue">
+</p>
+
+<p align="center"><b>🇮🇩 Bahasa Indonesia</b> · <a href="README.md">English</a></p>
 
 Script Bash untuk mengompres banyak gambar **PNG, JPG/JPEG, dan WebP** secara paralel. Setiap file diusahakan berada di bawah batas ukuran yang ditentukan (default **2 MB**) tanpa pernah menyimpan hasil yang lebih besar daripada file asli.
-
-[English version](README.md)
 
 ## ✨ Fitur
 
@@ -15,6 +24,26 @@ Script Bash untuk mengompres banyak gambar **PNG, JPG/JPEG, dan WebP** secara pa
 - Menyimpan hasil di subfolder `compressed/` tanpa menimpa file sumber
 - Dapat menghapus file sumber hanya setelah output berhasil dibuat dan memenuhi batas ukuran yang aktif
 - Menampilkan statistik ukuran per file, per folder, dan keseluruhan
+
+## ⚡ Mulai Cepat
+
+```bash
+git clone https://github.com/tirsasaki/compress-img.sh.git
+cd compress-img.sh
+chmod +x compress-img.sh
+
+# Kompres semua gambar di ./foto (maks. 2 MB per file) ke ./foto/compressed
+./compress-img.sh ./foto
+```
+
+Opsional, pasang ke `$PATH`:
+
+```bash
+sudo install -m 755 compress-img.sh /usr/local/bin/compress-img
+```
+
+> [!NOTE]
+> Pasang dulu [tool yang dibutuhkan](#-persyaratan). Contoh di Debian/Ubuntu: `sudo apt install pngquant jpegoptim webp imagemagick`.
 
 ## 📦 Persyaratan
 
@@ -43,7 +72,8 @@ Jika kompresor tidak tersedia, script tetap berjalan tetapi melewati file dengan
 
 [`ImageMagick`](https://imagemagick.org/) bersifat opsional tetapi direkomendasikan. Perintah `magick` atau `convert` versi lama digunakan sebagai langkah terakhir untuk memperkecil resolusi apabila penurunan kualitas belum mencapai batas `-m`. Tanpa ImageMagick, file yang masih melampaui batas dipertahankan di lokasi sumber dan dilaporkan tidak memenuhi batas.
 
-### Nama paket berdasarkan distribusi
+<details>
+<summary><b>Nama paket & perintah instalasi per distribusi</b></summary>
 
 Nama paket berbeda antar-keluarga distribusi:
 
@@ -87,19 +117,7 @@ command -v pngquant jpegoptim cwebp
 command -v magick || command -v convert  # fallback resize opsional
 ```
 
-## 🚀 Instalasi
-
-```bash
-git clone https://github.com/tirsasaki/compress-img.sh.git
-cd compress-img.sh
-chmod +x compress-img.sh
-```
-
-Opsional, pasang ke direktori yang ada di `$PATH`:
-
-```bash
-sudo install -m 755 compress-img.sh /usr/local/bin/compress-img
-```
+</details>
 
 ## 🛠️ Cara pakai
 
@@ -120,6 +138,9 @@ Jika tidak ada folder yang diberikan, script memproses folder saat ini (`.`).
 | `-r` | Cari semua subfolder yang berisi gambar; subfolder `compressed/` dilewati | nonaktif |
 | `-d` | Hapus file sumber setelah output tersimpan dan memenuhi batas ukuran yang aktif | nonaktif |
 | `-h` | Tampilkan bantuan | — |
+
+> [!WARNING]
+> `-d` menghapus file sumber secara permanen. Coba dulu tanpa `-d` pada folder kecil.
 
 Nilai `-m` dihitung sebagai MiB (`1 MB = 1024 × 1024 byte`). Saat batas aktif, target internal JPG/JPEG dan WebP dibuat sebesar 95% dari batas untuk memberi sedikit margin.
 
@@ -216,4 +237,4 @@ Sebaiknya uji tanpa `-d` pada folder kecil sebelum menghapus banyak file sumber.
 
 ## 📄 Lisensi
 
-Bebas digunakan dan dimodifikasi sesuai kebutuhan.
+Dirilis di bawah [Lisensi MIT](LICENSE).

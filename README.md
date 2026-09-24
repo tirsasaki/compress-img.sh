@@ -1,8 +1,17 @@
-# compress-img.sh
+<h1 align="center">
+  <img src="assets/logo.svg" alt="compress-img.sh" width="640">
+</h1>
+
+<p align="center">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green">
+  <img alt="Bash 4+" src="https://img.shields.io/badge/bash-4%2B-4EAA25?logo=gnubash&logoColor=white">
+  <img alt="Platform: Linux" src="https://img.shields.io/badge/platform-linux-lightgrey?logo=linux&logoColor=white">
+  <img alt="Formats: PNG, JPG, WebP" src="https://img.shields.io/badge/formats-PNG%20%7C%20JPG%20%7C%20WebP-blue">
+</p>
+
+<p align="center"><a href="README.id.md">🇮🇩 Bahasa Indonesia</a> · <b>English</b></p>
 
 A Bash script for compressing **PNG, JPG/JPEG, and WebP** images in parallel. It tries to bring every file below a configurable size limit (**2 MB** by default) and never saves a result larger than the original.
-
-[Versi Bahasa Indonesia](README.id.md)
 
 ## ✨ Features
 
@@ -15,6 +24,26 @@ A Bash script for compressing **PNG, JPG/JPEG, and WebP** images in parallel. It
 - Writes results to a separate `compressed/` subfolder without overwriting source files
 - Can delete a source file only after its output is saved and meets the active size limit
 - Reports size statistics per file, per folder, and for the full run
+
+## ⚡ Quick Start
+
+```bash
+git clone https://github.com/tirsasaki/compress-img.sh.git
+cd compress-img.sh
+chmod +x compress-img.sh
+
+# Compress every image in ./photos (max 2 MB each) into ./photos/compressed
+./compress-img.sh ./photos
+```
+
+Optionally, install it on your `$PATH`:
+
+```bash
+sudo install -m 755 compress-img.sh /usr/local/bin/compress-img
+```
+
+> [!NOTE]
+> Install the [required tools](#-requirements) first. On Debian/Ubuntu, for example: `sudo apt install pngquant jpegoptim webp imagemagick`.
 
 ## 📦 Requirements
 
@@ -43,7 +72,8 @@ If a compressor is unavailable, the script continues but skips files in the corr
 
 [`ImageMagick`](https://imagemagick.org/) is optional but recommended. Its `magick` or legacy `convert` command is used as a final fallback to reduce image dimensions when lowering quality is not enough to reach the `-m` limit. Without it, files that remain above the limit are retained at their source location and reported as not meeting the limit.
 
-### Package names by distribution
+<details>
+<summary><b>Package names & install commands per distribution</b></summary>
 
 Package names differ between distribution families:
 
@@ -87,19 +117,7 @@ command -v pngquant jpegoptim cwebp
 command -v magick || command -v convert  # optional resize fallback
 ```
 
-## 🚀 Installation
-
-```bash
-git clone https://github.com/tirsasaki/compress-img.sh.git
-cd compress-img.sh
-chmod +x compress-img.sh
-```
-
-Optionally, install it in a directory on your `$PATH`:
-
-```bash
-sudo install -m 755 compress-img.sh /usr/local/bin/compress-img
-```
+</details>
 
 ## 🛠️ Usage
 
@@ -120,6 +138,9 @@ When no folder is given, the script processes the current directory (`.`).
 | `-r` | Find every subfolder containing images; `compressed/` subfolders are skipped | off |
 | `-d` | Delete a source file after its output is saved and meets the active size limit | off |
 | `-h` | Show help | — |
+
+> [!WARNING]
+> `-d` permanently deletes source files. Try it without `-d` on a small folder first.
 
 The `-m` value is calculated as MiB (`1 MB = 1024 × 1024 bytes`). With an active limit, the internal JPG/JPEG and WebP target is set to 95% of that limit to leave a small margin.
 
@@ -218,4 +239,4 @@ The script's runtime messages are currently in Indonesian:
 
 ## 📄 License
 
-Free to use and modify as needed.
+Released under the [MIT License](LICENSE).
