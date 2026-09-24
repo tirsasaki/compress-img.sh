@@ -18,35 +18,74 @@ Script Bash untuk mengompres banyak gambar **PNG, JPG/JPEG, dan WebP** secara pa
 
 ## 📦 Persyaratan
 
-Script ini ditujukan untuk lingkungan GNU/Linux dengan Bash dan utilitas standar seperti `find`, `xargs`, `awk`, `stat`, `numfmt`, dan `nproc`.
+Script ini tidak bergantung pada distribusi tertentu dan dapat berjalan di sistem Linux apa pun yang menyediakan perintah yang dibutuhkan. Script tidak terikat pada package manager tertentu.
 
-Tool kompresi berikut diperlukan sesuai format yang ingin diproses:
+### Perintah runtime
 
-| Format | Tool | Paket Arch/Manjaro |
+- Bash 4 atau lebih baru
+- GNU Coreutils: `stat`, `numfmt`, `nproc`, dan `mktemp`
+- GNU Findutils: `find` dan `xargs`
+- Implementasi `awk`
+
+Distribusi minimal dan container mungkin mengharuskan utilitas ini dipasang secara eksplisit. Pada sebagian besar distribusi desktop dan server, utilitas tersebut sudah tersedia.
+
+### Perintah kompresi gambar
+
+Pasang kompresor untuk setiap format yang ingin diproses:
+
+| Format | Perintah wajib | Proyek |
 |---|---|---|
-| PNG | [`pngquant`](https://pngquant.org/) | `pngquant` |
-| JPG/JPEG | [`jpegoptim`](https://github.com/tjko/jpegoptim) | `jpegoptim` |
-| WebP | [`cwebp`](https://developers.google.com/speed/webp/docs/cwebp) | `libwebp` |
+| PNG | `pngquant` | [`pngquant`](https://pngquant.org/) |
+| JPG/JPEG | `jpegoptim` | [`jpegoptim`](https://github.com/tjko/jpegoptim) |
+| WebP | `cwebp` | [`libwebp`](https://developers.google.com/speed/webp/docs/cwebp) |
 
-Install semuanya di Arch/Manjaro:
+Jika kompresor tidak tersedia, script tetap berjalan tetapi melewati file dengan format terkait.
+
+[`ImageMagick`](https://imagemagick.org/) bersifat opsional tetapi direkomendasikan. Perintah `magick` atau `convert` versi lama digunakan sebagai langkah terakhir untuk memperkecil resolusi apabila penurunan kualitas belum mencapai batas `-m`. Tanpa ImageMagick, file yang masih melampaui batas dipertahankan di lokasi sumber dan dilaporkan tidak memenuhi batas.
+
+### Nama paket berdasarkan distribusi
+
+Nama paket berbeda antar-keluarga distribusi:
+
+| Keluarga distribusi | PNG | JPG/JPEG | Tool WebP | Fallback resize |
+|---|---|---|---|---|
+| Debian, Ubuntu, Linux Mint, Pop!_OS | `pngquant` | `jpegoptim` | `webp` | `imagemagick` |
+| Fedora, RHEL, Rocky Linux, AlmaLinux | `pngquant` | `jpegoptim` | `libwebp-tools` | `ImageMagick` |
+| Arch Linux, Manjaro, EndeavourOS | `pngquant` | `jpegoptim` | `libwebp` | `imagemagick` |
+| openSUSE | `pngquant` | `jpegoptim` | `libwebp-tools` | `ImageMagick` |
+| Alpine Linux | `pngquant` | `jpegoptim` | `libwebp-tools` | `imagemagick` |
+
+Pasang semua kompresor dan fallback resize yang direkomendasikan dengan perintah untuk distribusi Anda:
 
 ```bash
-sudo pacman -S pngquant jpegoptim libwebp
+# Debian / Ubuntu dan turunannya
+sudo apt update
+sudo apt install bash coreutils findutils gawk pngquant jpegoptim webp imagemagick
+
+# Fedora, atau RHEL/Rocky/Alma setelah mengaktifkan repository yang diperlukan
+sudo dnf install bash coreutils findutils gawk pngquant jpegoptim libwebp-tools ImageMagick
+
+# Arch Linux / Manjaro dan turunannya
+sudo pacman -S bash coreutils findutils gawk pngquant jpegoptim libwebp imagemagick
+
+# openSUSE
+sudo zypper install bash coreutils findutils gawk pngquant jpegoptim libwebp-tools ImageMagick
+
+# Alpine Linux (aktifkan repository community jika ada paket yang tidak tersedia)
+sudo apk add bash coreutils findutils gawk pngquant jpegoptim libwebp-tools imagemagick
 ```
 
-Jika salah satu tool tidak tersedia, script tetap berjalan tetapi melewati file dengan format terkait.
+Pada RHEL dan distribusi enterprise yang kompatibel, `pngquant` atau `jpegoptim` mungkin memerlukan repository tambahan seperti EPEL. Pada openSUSE Leap, beberapa tool gambar mungkin memerlukan repository graphics. Ketersediaan paket dapat berbeda menurut versi distribusi.
 
-### ImageMagick (opsional, direkomendasikan)
+Untuk distribusi lain yang tidak tercantum, gunakan pencarian paketnya untuk menemukan paket yang menyediakan `pngquant`, `jpegoptim`, dan `cwebp`. Script memeriksa ketersediaan perintah, bukan nama distribusi, sehingga build dari source dan package manager alternatif juga dapat digunakan.
 
-[`ImageMagick`](https://imagemagick.org/) digunakan sebagai langkah terakhir untuk memperkecil resolusi apabila penurunan kualitas saja belum mencapai batas `-m`.
+Verifikasi instalasi:
 
 ```bash
-sudo pacman -S imagemagick
+command -v bash find xargs awk stat numfmt nproc
+command -v pngquant jpegoptim cwebp
+command -v magick || command -v convert  # fallback resize opsional
 ```
-
-Tanpa ImageMagick, file yang masih melampaui batas setelah kualitas diturunkan akan tetap ditulis ke `compressed/`, dilaporkan sebagai gagal memenuhi batas, dan tidak akan dihapus dari lokasi asal. Script mengenali perintah `magick` maupun `convert`.
-
-Untuk distro lain, gunakan package manager dan nama paket yang sesuai dengan distro tersebut.
 
 ## 🚀 Instalasi
 
