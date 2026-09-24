@@ -1,101 +1,130 @@
 # compress-img.sh
 
-Script Bash untuk kompres banyak gambar (**PNG, JPG/JPEG, WebP**) sekaligus, secara paralel (multi-core), mendukung banyak folder, mode rekursif, dan opsi hapus otomatis file asli setelah berhasil dikompres.
+Script Bash untuk mengompres banyak gambar **PNG, JPG/JPEG, dan WebP** secara paralel. Setiap file diusahakan berada di bawah batas ukuran yang ditentukan (default **2 MB**) tanpa pernah menyimpan hasil yang lebih besar daripada file asli.
+
+[English version](README.en.md)
 
 ## ✨ Fitur
 
-- Kompres **PNG**, **JPG/JPEG**, dan **WebP** dalam satu perintah
-- Proses **paralel** memakai semua core CPU (`xargs -P$(nproc)`)
-- Bisa proses **banyak folder sekaligus**
-- Mode **rekursif** (`-r`) — otomatis cari semua subfolder yang berisi gambar
-- Opsi **hapus file asli** (`-d`) setelah berhasil dikompres — jadi tidak perlu hapus manual satu-satu
-- File asli **tidak akan terhapus** kalau kompresi gagal atau hasilnya tidak lebih kecil
-- Hasil kompresi disimpan terpisah di subfolder `compressed/`, tidak menimpa file asli
-- Ringkasan ukuran sebelum/sesudah kompresi per folder dan total keseluruhan
+- Memproses PNG, JPG/JPEG, dan WebP dalam satu perintah
+- Menargetkan ukuran maksimum per file melalui opsi `-m`
+- Menurunkan kualitas dan, jika perlu, resolusi secara bertahap sampai batas ukuran tercapai
+- Memilih hasil terkecil dari seluruh percobaan; jika tidak ada hasil yang lebih kecil, file asli disalin apa adanya
+- Memproses file secara paralel menggunakan semua core CPU yang tersedia
+- Mendukung banyak folder dan pencarian subfolder secara rekursif
+- Menyimpan hasil di subfolder `compressed/` tanpa menimpa file sumber
+- Dapat menghapus file sumber hanya setelah output berhasil dibuat dan memenuhi batas ukuran yang aktif
+- Menampilkan statistik ukuran per file, per folder, dan keseluruhan
 
-## 📦 Requirement
+## 📦 Persyaratan
 
-Script ini memanggil tool eksternal sesuai format gambar:
+Script ini ditujukan untuk lingkungan GNU/Linux dengan Bash dan utilitas standar seperti `find`, `xargs`, `awk`, `stat`, `numfmt`, dan `nproc`.
 
-| Format | Tool | Install (Arch/Manjaro) |
+Tool kompresi berikut diperlukan sesuai format yang ingin diproses:
+
+| Format | Tool | Paket Arch/Manjaro |
 |---|---|---|
-| PNG | [`pngquant`](https://pngquant.org/) | `sudo pacman -S pngquant` |
-| JPG/JPEG | [`jpegoptim`](https://github.com/tjko/jpegoptim) | `sudo pacman -S jpegoptim` |
-| WebP | [`cwebp`](https://developers.google.com/speed/webp/docs/cwebp) (dari `libwebp`) | `sudo pacman -S libwebp` |
+| PNG | [`pngquant`](https://pngquant.org/) | `pngquant` |
+| JPG/JPEG | [`jpegoptim`](https://github.com/tjko/jpegoptim) | `jpegoptim` |
+| WebP | [`cwebp`](https://developers.google.com/speed/webp/docs/cwebp) | `libwebp` |
 
-Install ketiganya sekaligus:
+Install semuanya di Arch/Manjaro:
 
 ```bash
 sudo pacman -S pngquant jpegoptim libwebp
 ```
 
-> Untuk distro lain, ganti dengan package manager masing-masing (`apt`, `dnf`, `brew`, dll). Nama paketnya biasanya sama.
+Jika salah satu tool tidak tersedia, script tetap berjalan tetapi melewati file dengan format terkait.
 
-Kalau salah satu tool belum terinstall, script **tetap jalan** — hanya file dengan format terkait yang akan dilewati, dan akan muncul peringatan di awal.
+### ImageMagick (opsional, direkomendasikan)
+
+[`ImageMagick`](https://imagemagick.org/) digunakan sebagai langkah terakhir untuk memperkecil resolusi apabila penurunan kualitas saja belum mencapai batas `-m`.
+
+```bash
+sudo pacman -S imagemagick
+```
+
+Tanpa ImageMagick, file yang masih melampaui batas setelah kualitas diturunkan akan tetap ditulis ke `compressed/`, dilaporkan sebagai gagal memenuhi batas, dan tidak akan dihapus dari lokasi asal. Script mengenali perintah `magick` maupun `convert`.
+
+Untuk distro lain, gunakan package manager dan nama paket yang sesuai dengan distro tersebut.
 
 ## 🚀 Instalasi
 
-1. Clone atau download repo ini
-2. Beri izin eksekusi:
-
 ```bash
+git clone https://github.com/tirsasaki/compress-img.sh.git
+cd compress-img.sh
 chmod +x compress-img.sh
 ```
 
-3. (Opsional) Pindahkan ke folder yang ada di `$PATH` supaya bisa dipanggil dari mana saja:
+Opsional, pasang ke direktori yang ada di `$PATH`:
 
 ```bash
-sudo mv compress-img.sh /usr/local/bin/compress-img
+sudo install -m 755 compress-img.sh /usr/local/bin/compress-img
 ```
 
-## 🛠️ Cara Pakai
+## 🛠️ Cara pakai
 
-```bash
-./compress-img.sh [-q min-max] [-j quality] [-w quality] [-r] [-d] [folder1 folder2 ...]
+```text
+./compress-img.sh [-q min-max] [-j quality] [-w quality] [-m MB] [-r] [-d] [folder ...]
 ```
+
+Jika tidak ada folder yang diberikan, script memproses folder saat ini (`.`).
 
 ### Opsi
 
 | Opsi | Deskripsi | Default |
 |---|---|---|
-| `-q min-max` | Quality `pngquant` untuk PNG | `85-95` |
-| `-j quality` | Quality `jpegoptim` untuk JPG/JPEG (0–100) | `85` |
-| `-w quality` | Quality `cwebp` untuk WebP (0–100) | `85` |
-| `-r` | Mode rekursif — proses semua subfolder yang berisi gambar | nonaktif |
-| `-d` | Hapus file asli setelah berhasil dikompres | nonaktif |
+| `-q min-max` | Rentang kualitas awal `pngquant` untuk PNG | `85-95` |
+| `-j quality` | Kualitas awal `jpegoptim` untuk JPG/JPEG, `1-100` | `85` |
+| `-w quality` | Kualitas awal `cwebp` untuk WebP, `1-100` | `85` |
+| `-m MB` | Batas ukuran maksimum tiap file dalam MB; boleh desimal, gunakan `0` untuk menonaktifkan batas | `2` |
+| `-r` | Cari semua subfolder yang berisi gambar; subfolder `compressed/` dilewati | nonaktif |
+| `-d` | Hapus file sumber setelah output tersimpan dan memenuhi batas ukuran yang aktif | nonaktif |
+| `-h` | Tampilkan bantuan | — |
 
-Kalau tidak ada folder yang diberikan, script memproses folder saat ini (`.`).
+Nilai `-m` dihitung sebagai MiB (`1 MB = 1024 × 1024 byte`). Saat batas aktif, target internal JPG/JPEG dan WebP dibuat sebesar 95% dari batas untuk memberi sedikit margin.
 
 ### Contoh
 
 ```bash
-# Folder saat ini, semua format, quality default
+# Folder saat ini, batas default 2 MB per file
 ./compress-img.sh
-
-# Satu folder
-./compress-img.sh ./foto
 
 # Banyak folder sekaligus
 ./compress-img.sh ./foto ./banner ./icon
 
-# Custom quality tiap format
+# Batas maksimum 1,5 MB per file
+./compress-img.sh -m 1.5 ./foto
+
+# Kualitas awal khusus untuk setiap format
 ./compress-img.sh -q 70-90 -j 80 -w 80 ./foto
 
-# Mode rekursif — semua subfolder di dalam ./assets ikut diproses
+# Semua subfolder di dalam ./assets
 ./compress-img.sh -r ./assets
 
-# Kompres lalu langsung hapus file asli (biar tidak hapus manual)
-./compress-img.sh -d ./foto
+# Rekursif dan hapus sumber yang berhasil memenuhi batas 1 MB
+./compress-img.sh -m 1 -r -d ./assets
 
-# Kombinasi lengkap: rekursif + custom quality + hapus asli
-./compress-img.sh -q 70-90 -j 80 -w 80 -r -d ./assets
+# Nonaktifkan batas ukuran; hanya lakukan kompresi kualitas awal
+./compress-img.sh -m 0 ./foto
 ```
 
-## 📁 Struktur Output
+## ⚙️ Cara kerja
 
-Hasil kompresi disimpan di subfolder `compressed/` di dalam folder input, dengan nama file yang sama:
+Untuk setiap file, script:
 
-```
+1. mencoba kompresi dengan kualitas yang diberikan melalui `-q`, `-j`, atau `-w`;
+2. jika masih di atas `-m`, menurunkan kualitas secara bertahap atau memakai mode target-size;
+3. jika masih terlalu besar dan ImageMagick tersedia, mencoba skala resolusi `85%`, `70%`, `60%`, `50%`, `40%`, `30%`, lalu `20%`;
+4. menyimpan kandidat terkecil ke `compressed/`, atau menyalin file asli apabila tidak ada kandidat yang lebih kecil.
+
+Pemrosesan berhenti lebih awal segera setelah kandidat terbaik sudah memenuhi batas. Dengan `-m 0`, tahap penurunan kualitas lanjutan dan resize tidak dijalankan.
+
+## 📁 Struktur output
+
+Setiap folder input memperoleh subfolder `compressed/` sendiri:
+
+```text
 foto/
 ├── banner.png
 ├── logo.jpg
@@ -106,45 +135,46 @@ foto/
     └── icon.webp
 ```
 
-Kalau opsi `-d` dipakai, file asli (`foto/banner.png`, dst.) akan dihapus **setelah** versi terkompresinya berhasil tersimpan di `compressed/`.
+File yang sudah ada dengan nama sama di `compressed/` akan diganti. Dalam mode rekursif, direktori bernama `compressed` beserta isinya tidak diproses kembali.
 
-## ⚠️ Catatan Keamanan
+## ⚠️ Penghapusan file dan status keluar
 
-- File asli **hanya dihapus** ketika `-d` diaktifkan **dan** proses kompresi untuk file tersebut sukses.
-- Jika kompresi gagal (tool tidak ada, file korup, dll.) atau hasil kompresi tidak lebih kecil dari aslinya, file asli **tidak** akan dihapus.
-- Disarankan untuk mencoba dulu **tanpa** `-d` pada satu folder kecil untuk memastikan hasil kompresinya sesuai harapan, sebelum menjalankan `-d` secara massal di banyak folder.
+- Tanpa `-d`, file sumber selalu dipertahankan.
+- Dengan `-d`, file sumber hanya dihapus jika output nonkosong sudah tersimpan dan tidak melebihi batas `-m` yang aktif.
+- File yang tidak mencapai batas tidak pernah dihapus dan dicantumkan dalam ringkasan kegagalan.
+- Dengan `-m 0`, tidak ada batas ukuran yang harus dipenuhi; karena itu `-d` akan menghapus sumber setelah output berhasil disimpan, termasuk ketika file disalin apa adanya karena sudah optimal.
+- Script keluar dengan status `2` jika ada file yang masih di atas batas, dan status `1` untuk input/opsi tidak valid atau ketika tidak ada folder berisi gambar yang ditemukan.
 
-## 📊 Contoh Output
+Sebaiknya uji tanpa `-d` pada folder kecil sebelum menghapus banyak file sumber.
 
-```
+## 📊 Contoh output
+
+```text
 🗂️  Total folder yang akan diproses: 1
    - ./foto
 🎚️  Quality PNG  : 85-95
 🎚️  Quality JPG  : 85
 🎚️  Quality WebP : 85
-🗑️  Mode hapus asli: AKTIF (file asli akan dihapus setelah sukses dikompres)
+🎯 Batas ukuran per file: 2.0MB
 
 ──────────────────────────────────────────
-📂 Folder input   : ./foto
-📦 Folder output  : ./foto/compressed
-🔢 Jumlah file     : 12
+📂 Folder input  : ./foto
+📦 Folder output : ./foto/compressed
+🔢 Jumlah file   : 3
 
-✅ banner.png
-✅ logo.jpg
-✅ icon.webp
-...
+✅ banner.png  3.2MB → 1.8MB (-44%) · kualitas diturunkan
+✅ logo.jpg  4.1MB → 1.9MB (-54%)
+✅ icon.webp  900KB → 420KB (-53%)
 
-📊 Ukuran sebelum : 24M
-📊 Ukuran sesudah : 9.1M
+📊 Ukuran sebelum : 8.2MB
+📊 Ukuran sesudah : 4.1MB
 
 ════════════════════════════════════════
 🎉 Selesai! Total 1 folder diproses.
-📊 Total ukuran sebelum : 24M
-📊 Total ukuran sesudah : 9.1M
+📊 Total ukuran sebelum : 8.2MB
+📊 Total ukuran sesudah : 4.1MB
 ```
 
 ## 📄 Lisensi
 
 Bebas digunakan dan dimodifikasi sesuai kebutuhan.
-ya bebas, sesuai deskripsi
-kita lanjut ke tahap berikutnya
