@@ -18,35 +18,74 @@ A Bash script for compressing **PNG, JPG/JPEG, and WebP** images in parallel. It
 
 ## 📦 Requirements
 
-The script targets GNU/Linux environments with Bash and standard utilities such as `find`, `xargs`, `awk`, `stat`, `numfmt`, and `nproc`.
+The script is distribution-independent and works on any Linux system that provides the required commands. It does not depend on a specific package manager.
 
-Install the compression tool for every format you want to process:
+### Runtime commands
 
-| Format | Tool | Arch/Manjaro package |
+- Bash 4 or newer
+- GNU Coreutils: `stat`, `numfmt`, `nproc`, and `mktemp`
+- GNU Findutils: `find` and `xargs`
+- An `awk` implementation
+
+Minimal distributions and containers may require these utilities to be installed explicitly. On most desktop and server distributions they are already available.
+
+### Image compression commands
+
+Install the compressor for every format you want to process:
+
+| Format | Required command | Project |
 |---|---|---|
-| PNG | [`pngquant`](https://pngquant.org/) | `pngquant` |
-| JPG/JPEG | [`jpegoptim`](https://github.com/tjko/jpegoptim) | `jpegoptim` |
-| WebP | [`cwebp`](https://developers.google.com/speed/webp/docs/cwebp) | `libwebp` |
+| PNG | `pngquant` | [`pngquant`](https://pngquant.org/) |
+| JPG/JPEG | `jpegoptim` | [`jpegoptim`](https://github.com/tjko/jpegoptim) |
+| WebP | `cwebp` | [`libwebp`](https://developers.google.com/speed/webp/docs/cwebp) |
 
-Install all three on Arch/Manjaro:
+If a compressor is unavailable, the script continues but skips files in the corresponding format.
+
+[`ImageMagick`](https://imagemagick.org/) is optional but recommended. Its `magick` or legacy `convert` command is used as a final fallback to reduce image dimensions when lowering quality is not enough to reach the `-m` limit. Without it, files that remain above the limit are retained at their source location and reported as not meeting the limit.
+
+### Package names by distribution
+
+Package names differ between distribution families:
+
+| Distribution family | PNG | JPG/JPEG | WebP tools | Resize fallback |
+|---|---|---|---|---|
+| Debian, Ubuntu, Linux Mint, Pop!_OS | `pngquant` | `jpegoptim` | `webp` | `imagemagick` |
+| Fedora, RHEL, Rocky Linux, AlmaLinux | `pngquant` | `jpegoptim` | `libwebp-tools` | `ImageMagick` |
+| Arch Linux, Manjaro, EndeavourOS | `pngquant` | `jpegoptim` | `libwebp` | `imagemagick` |
+| openSUSE | `pngquant` | `jpegoptim` | `libwebp-tools` | `ImageMagick` |
+| Alpine Linux | `pngquant` | `jpegoptim` | `libwebp-tools` | `imagemagick` |
+
+Install all compressors and the recommended resize fallback with the command for your distribution:
 
 ```bash
-sudo pacman -S pngquant jpegoptim libwebp
+# Debian / Ubuntu and derivatives
+sudo apt update
+sudo apt install bash coreutils findutils gawk pngquant jpegoptim webp imagemagick
+
+# Fedora, or RHEL/Rocky/Alma after enabling the required repositories
+sudo dnf install bash coreutils findutils gawk pngquant jpegoptim libwebp-tools ImageMagick
+
+# Arch Linux / Manjaro and derivatives
+sudo pacman -S bash coreutils findutils gawk pngquant jpegoptim libwebp imagemagick
+
+# openSUSE
+sudo zypper install bash coreutils findutils gawk pngquant jpegoptim libwebp-tools ImageMagick
+
+# Alpine Linux (enable the community repository if a package is unavailable)
+sudo apk add bash coreutils findutils gawk pngquant jpegoptim libwebp-tools imagemagick
 ```
 
-If a tool is unavailable, the script continues but skips files in the corresponding format.
+On RHEL and compatible enterprise distributions, `pngquant` or `jpegoptim` may require an additional repository such as EPEL. On openSUSE Leap, some image tools may require the graphics repository. Package availability can differ by release.
 
-### ImageMagick (optional, recommended)
+For any distribution not listed above, use its package search to find packages that provide `pngquant`, `jpegoptim`, and `cwebp`. The script checks command availability rather than the distribution name, so source builds and alternative package managers work as well.
 
-[`ImageMagick`](https://imagemagick.org/) is used as a final fallback to reduce image dimensions when lowering quality is not enough to reach the `-m` limit.
+Verify the installation:
 
 ```bash
-sudo pacman -S imagemagick
+command -v bash find xargs awk stat numfmt nproc
+command -v pngquant jpegoptim cwebp
+command -v magick || command -v convert  # optional resize fallback
 ```
-
-Without ImageMagick, a file that remains above the limit after quality reduction is still written to `compressed/`, reported as not meeting the limit, and retained at its source location. The script supports both the `magick` and legacy `convert` commands.
-
-On other distributions, use the appropriate package manager and package names.
 
 ## 🚀 Installation
 
