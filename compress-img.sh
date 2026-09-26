@@ -1,51 +1,51 @@
 #!/usr/bin/env bash
 #
-# compress-img.sh — Kompres banyak gambar (PNG, JPG/JPEG, WebP) paralel, multi-core,
-# dengan TARGET UKURAN MAKSIMUM per file (default 2 MB).
+# compress-img.sh — Compress multiple images (PNG, JPG/JPEG, WebP) in parallel
+# across multiple CPU cores, with a MAXIMUM TARGET SIZE per file (default: 2 MB).
 #
-# Tool per format:
+# Tools by format:
 #   PNG        -> pngquant
 #   JPG/JPEG   -> jpegoptim
 #   WebP       -> cwebp (libwebp)
-#   (opsional) -> ImageMagick, dipakai sebagai langkah terakhir: memperkecil resolusi
+#   (optional) -> ImageMagick, used as a final step to reduce resolution
 #
-# Cara kerja per file (berhenti begitu ukuran <= batas -m):
-#   1. Kompres dengan kualitas yang kamu tentukan (-q / -j / -w)
-#   2. Kalau masih di atas batas -> turunkan kualitas bertahap / pakai mode target-size
-#   3. Kalau masih di atas batas -> perkecil resolusi bertahap (butuh ImageMagick)
-#   Hasil selalu yang TERKECIL dari semua percobaan. Kalau hasil tidak lebih kecil
-#   dari aslinya, file asli disalin apa adanya ke compressed/.
+# Per-file workflow (stops as soon as the size is within the -m limit):
+#   1. Compress using the specified quality (-q / -j / -w)
+#   2. If still over the limit -> gradually lower quality / use target-size mode
+#   3. If still over the limit -> gradually reduce resolution (requires ImageMagick)
+#   The SMALLEST result from all attempts is always kept. If no result is smaller
+#   than the original, the original file is copied unchanged to compressed/.
 #
-# PENGHAPUSAN FILE ASLI (default: AKTIF):
-#   Setelah sebuah gambar berhasil dikompres, hasilnya sudah tersimpan di
-#   compressed/, dan ukurannya sudah <= batas -m, file aslinya otomatis dihapus.
-#   File yang gagal / masih di atas batas TIDAK PERNAH dihapus.
-#   Pakai -k kalau kamu ingin file asli tetap disimpan.
+# ORIGINAL FILE DELETION (default: ENABLED):
+#   After an image has been compressed successfully, saved to compressed/, and
+#   reduced to within the -m limit, the original file is deleted automatically.
+#   Failed files or files still over the limit are NEVER deleted.
+#   Use -k to keep the original files.
 #
-# Cara pakai:
+# Usage:
 #   ./compress-img.sh [-q min-max] [-j quality] [-w quality] [-m MB] [-r] [-k] [folder ...]
 #
-# Opsi:
-#   -q min-max   Quality pngquant untuk PNG (default: 85-95)
-#   -j quality   Quality jpegoptim untuk JPG/JPEG, 1-100 (default: 85)
-#   -w quality   Quality cwebp untuk WebP, 1-100 (default: 85)
-#   -m MB        Batas ukuran maksimum per file dalam MB, boleh desimal (default: 2).
-#                Pakai -m 0 untuk menonaktifkan batas.
-#   -r           Rekursif: tiap argumen dianggap folder ROOT, semua subfolder
-#                yang berisi gambar ikut diproses.
-#   -k           KEEP: jangan hapus file asli (hanya buat hasil di compressed/).
-#   -d           Hapus file asli setelah berhasil dikompres (sudah default, opsi ini
-#                dipertahankan agar perintah lama tetap jalan).
-#   -h           Tampilkan bantuan.
+# Options:
+#   -q min-max   pngquant quality for PNG files (default: 85-95)
+#   -j quality   jpegoptim quality for JPG/JPEG files, 1-100 (default: 85)
+#   -w quality   cwebp quality for WebP files, 1-100 (default: 85)
+#   -m MB        Maximum size per file in MB; decimals are allowed (default: 2).
+#                Use -m 0 to disable the size limit.
+#   -r           Recursive: treat each argument as a ROOT folder and process every
+#                subfolder that contains images.
+#   -k           KEEP: do not delete original files (only create results in compressed/).
+#   -d           Delete original files after successful compression (already the default;
+#                retained for backward compatibility).
+#   -h           Show this help message.
 #
-# Contoh:
-#   ./compress-img.sh                          # folder saat ini
-#   ./compress-img.sh ./foto ./banner          # banyak folder
-#   ./compress-img.sh -m 1.5 ./foto            # batas 1.5 MB
-#   ./compress-img.sh -r ./assets              # rekursif, file asli dihapus otomatis
-#   ./compress-img.sh -k ./foto                # kompres saja, file asli dipertahankan
+# Examples:
+#   ./compress-img.sh                          # current folder
+#   ./compress-img.sh ./photos ./banners       # multiple folders
+#   ./compress-img.sh -m 1.5 ./photos          # 1.5 MB limit
+#   ./compress-img.sh -r ./assets              # recursive; originals are deleted automatically
+#   ./compress-img.sh -k ./photos              # compress only; keep original files
 #
-# Hasil tiap folder disimpan di: <folder>/compressed/
+# Results for each folder are saved to: <folder>/compressed/
 
 set -uo pipefail
 
@@ -54,15 +54,15 @@ JPG_QUALITY="85"
 WEBP_QUALITY="85"
 MAX_MB="2"
 RECURSIVE=0
-# Pengaturan: hapus file asli setelah sukses dikompres? 1 = ya (default), 0 = tidak.
-# Bisa diubah di sini secara permanen, atau per-eksekusi lewat opsi -k / -d.
+# Setting: delete original files after successful compression? 1 = yes (default), 0 = no.
+# Change it here permanently or per invocation with the -k / -d options.
 DELETE_ORIGINAL=1
 
 usage() {
   awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"
 }
 
-# --- Parse opsi ---
+# --- Parse options ---
 while getopts ":q:j:w:m:rdkh" opt; do
   case "$opt" in
     q) PNG_QUALITY="$OPTARG" ;;
@@ -73,37 +73,37 @@ while getopts ":q:j:w:m:rdkh" opt; do
     d) DELETE_ORIGINAL=1 ;;
     k) DELETE_ORIGINAL=0 ;;
     h) usage; exit 0 ;;
-    \?) echo "❌ Opsi tidak dikenal: -$OPTARG" >&2; exit 1 ;;
-    :)  echo "❌ Opsi -$OPTARG butuh argumen." >&2; exit 1 ;;
+    \?) echo "❌ Unknown option: -$OPTARG" >&2; exit 1 ;;
+    :)  echo "❌ Option -$OPTARG requires an argument." >&2; exit 1 ;;
   esac
 done
 shift $((OPTIND - 1))
 
-# --- Validasi ---
+# --- Validation ---
 if ! [[ "$MAX_MB" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
-  echo "❌ Nilai -m harus angka (MB), contoh: 2 atau 1.5" >&2; exit 1
+  echo "❌ The -m value must be a number in MB, for example: 2 or 1.5" >&2; exit 1
 fi
 for v in "$JPG_QUALITY" "$WEBP_QUALITY"; do
   if ! [[ "$v" =~ ^[0-9]+$ ]] || [ "$v" -lt 1 ] || [ "$v" -gt 100 ]; then
-    echo "❌ Quality -j / -w harus angka 1-100." >&2; exit 1
+    echo "❌ The -j / -w quality must be a number from 1 to 100." >&2; exit 1
   fi
 done
 if ! [[ "$PNG_QUALITY" =~ ^[0-9]+-[0-9]+$ ]]; then
-  echo "❌ Quality -q harus berbentuk min-max, contoh: 85-95" >&2; exit 1
+  echo "❌ The -q quality must use the min-max format, for example: 85-95" >&2; exit 1
 fi
 
 MAX_BYTES=$(awk -v m="$MAX_MB" 'BEGIN { printf "%d", m * 1024 * 1024 }')
 
-# --- Cek dependency ---
+# --- Check dependencies ---
 MISSING_TOOLS=()
-command -v pngquant  &> /dev/null || MISSING_TOOLS+=("pngquant (untuk PNG)")
-command -v jpegoptim &> /dev/null || MISSING_TOOLS+=("jpegoptim (untuk JPG/JPEG)")
-command -v cwebp     &> /dev/null || MISSING_TOOLS+=("cwebp (untuk WebP, dari paket libwebp)")
+command -v pngquant  &> /dev/null || MISSING_TOOLS+=("pngquant (for PNG)")
+command -v jpegoptim &> /dev/null || MISSING_TOOLS+=("jpegoptim (for JPG/JPEG)")
+command -v cwebp     &> /dev/null || MISSING_TOOLS+=("cwebp (for WebP, from the libwebp package)")
 
 if [ ${#MISSING_TOOLS[@]} -gt 0 ]; then
-  echo "⚠️  Tool berikut belum terinstall — file dengan format terkait akan DILEWATI:"
+  echo "⚠️  The following tools are not installed — files in the related formats will be SKIPPED:"
   printf '   - %s\n' "${MISSING_TOOLS[@]}"
-  echo "   Install misalnya dengan: sudo pacman -S pngquant jpegoptim libwebp"
+  echo "   Install them, for example, with: sudo pacman -S pngquant jpegoptim libwebp"
   echo ""
 fi
 
@@ -114,13 +114,13 @@ elif command -v convert &> /dev/null; then
   IM="convert"
 fi
 if [ "$MAX_BYTES" -gt 0 ] && [ -z "$IM" ]; then
-  echo "⚠️  ImageMagick tidak ditemukan — langkah 'perkecil resolusi' tidak tersedia."
-  echo "   File yang masih di atas batas setelah kualitas diturunkan akan dilaporkan gagal."
+  echo "⚠️  ImageMagick was not found — the 'reduce resolution' step is unavailable."
+  echo "   Files still over the limit after lowering quality will be reported as failed."
   echo "   Install: sudo pacman -S imagemagick"
   echo ""
 fi
 
-# --- Direktori kerja sementara ---
+# --- Temporary working directory ---
 TMP_ROOT=$(mktemp -d)
 trap 'rm -rf "$TMP_ROOT"' EXIT
 STATS_FILE="$TMP_ROOT/stats"
@@ -128,7 +128,7 @@ FAIL_FILE="$TMP_ROOT/fail"
 : > "$STATS_FILE"
 : > "$FAIL_FILE"
 
-# Urutan skala resolusi (persen dari ukuran asli) yang dicoba bila perlu
+# Resolution scale sequence (percentage of original size) to try when needed
 SCALES="85 70 60 50 40 30 20"
 
 IMG_FIND=( \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) )
@@ -142,12 +142,12 @@ folder_has_image() {
 }
 
 # ============================================================
-#  Fungsi worker (dijalankan per file, di proses terpisah)
+#  Worker function (runs once per file in a separate process)
 # ============================================================
 
 hsize() { numfmt --to=iec --suffix=B "$1" 2>/dev/null || echo "${1}B"; }
 
-# Bandingkan kandidat ($CAND) dengan yang terbaik sejauh ini ($BEST)
+# Compare the candidate ($CAND) with the best result so far ($BEST)
 consider() {
   if [ ! -s "$CAND" ]; then rm -f -- "$CAND"; return 0; fi
   local sz
@@ -163,12 +163,12 @@ consider() {
   return 0
 }
 
-# Benar bila batas aktif dan hasil terbaik masih di atas batas
+# True when the limit is enabled and the best result is still over the limit
 over_limit() {
   [ "$MAX_BYTES" -gt 0 ] && [ "$BEST_SIZE" -gt "$MAX_BYTES" ]
 }
 
-# resize_img SRC DST PERSEN
+# resize_img SRC DST PERCENT
 resize_img() {
   [ -n "$IM" ] || return 1
   "$IM" "$1" -auto-orient -resize "$3%" "$2" >/dev/null 2>&1
@@ -190,7 +190,7 @@ process_file() {
     *) return 0 ;;
   esac
   if ! command -v "$tool" > /dev/null 2>&1; then
-    echo "⚠️  $name — dilewati ($tool tidak terinstall)"
+    echo "⚠️  $name — skipped ($tool is not installed)"
     return 0
   fi
 
@@ -202,7 +202,7 @@ process_file() {
   HAVE_BEST=0
   NOTE=""
   STAGE_NOTE=""
-  local TARGET=$(( MAX_BYTES * 95 / 100 ))   # sasaran 95% dari batas, biar ada margin
+  local TARGET=$(( MAX_BYTES * 95 / 100 ))   # target 95% of the limit to leave some margin
   local JOPTS="--strip-com --strip-iptc --strip-xmp --all-progressive --quiet"
 
   case "$EXT" in
@@ -212,7 +212,7 @@ process_file() {
       [ -z "$IM" ] && ladder="$ladder 0-40"
       local first=1
       for q in $ladder; do
-        [ "$first" -eq 0 ] && STAGE_NOTE="kualitas diturunkan"
+        [ "$first" -eq 0 ] && STAGE_NOTE="quality lowered"
         first=0
         pngquant --quality="$q" --strip --force --output "$CAND" -- "$F" > /dev/null 2>&1
         consider
@@ -220,7 +220,7 @@ process_file() {
       done
       if over_limit && [ -n "$IM" ]; then
         for pct in $SCALES; do
-          STAGE_NOTE="resolusi ${pct}%"
+          STAGE_NOTE="${pct}% resolution"
           resize_img "$F" "$WORK/r.$EXT" "$pct" || break
           pngquant --quality=0-70 --strip --force --output "$CAND" -- "$WORK/r.$EXT" > /dev/null 2>&1
           consider
@@ -235,14 +235,14 @@ process_file() {
       jpegoptim --max="$JPG_QUALITY" $JOPTS "$CAND" > /dev/null 2>&1
       consider
       if over_limit; then
-        STAGE_NOTE="kualitas diturunkan"
+        STAGE_NOTE="quality lowered"
         cp -f -- "$F" "$CAND"
         jpegoptim --size="$(( TARGET / 1000 ))k" $JOPTS "$CAND" > /dev/null 2>&1
         consider
       fi
       if over_limit && [ -n "$IM" ]; then
         for pct in $SCALES; do
-          STAGE_NOTE="resolusi ${pct}%"
+          STAGE_NOTE="${pct}% resolution"
           resize_img "$F" "$WORK/r.$EXT" "$pct" || break
           cp -f -- "$WORK/r.$EXT" "$CAND"
           jpegoptim --size="$(( TARGET / 1000 ))k" $JOPTS "$CAND" > /dev/null 2>&1
@@ -257,13 +257,13 @@ process_file() {
       cwebp -quiet -m 6 -q "$WEBP_QUALITY" "$F" -o "$CAND" > /dev/null 2>&1
       consider
       if over_limit; then
-        STAGE_NOTE="kualitas diturunkan"
+        STAGE_NOTE="quality lowered"
         cwebp -quiet -m 6 -size "$TARGET" "$F" -o "$CAND" > /dev/null 2>&1
         consider
       fi
       if over_limit && [ -n "$IM" ]; then
         for pct in $SCALES; do
-          STAGE_NOTE="resolusi ${pct}%"
+          STAGE_NOTE="${pct}% resolution"
           resize_img "$F" "$WORK/r.$EXT" "$pct" || break
           cwebp -quiet -m 6 -size "$TARGET" "$WORK/r.$EXT" -o "$CAND" > /dev/null 2>&1
           consider
@@ -273,7 +273,7 @@ process_file() {
       ;;
   esac
 
-  # --- Simpan hasil ke compressed/ ---
+  # --- Save the result to compressed/ ---
   mkdir -p "$outdir"
   local after
   if [ "$HAVE_BEST" -eq 1 ]; then
@@ -291,10 +291,10 @@ process_file() {
   [ -n "$NOTE" ] && info="$info · $NOTE"
 
   if over_limit; then
-    echo "❌ $name  $info  — MASIH di atas $(hsize "$MAX_BYTES"), file asli TIDAK dihapus"
+    echo "❌ $name  $info  — STILL over $(hsize "$MAX_BYTES"); the original file was NOT deleted"
     printf '%s\n' "$F" >> "$FAIL_FILE"
   else
-    [ "$HAVE_BEST" -eq 0 ] && info="$info · sudah optimal, disalin apa adanya"
+    [ "$HAVE_BEST" -eq 0 ] && info="$info · already optimal, copied unchanged"
     echo "✅ $name  $info"
     if [ "$DELETE_ORIGINAL" -eq 1 ] && [ -s "$outdir/$name" ]; then
       rm -f -- "$F"
@@ -310,7 +310,7 @@ export PNG_QUALITY JPG_QUALITY WEBP_QUALITY MAX_BYTES DELETE_ORIGINAL \
        STATS_FILE FAIL_FILE TMP_ROOT IM SCALES
 
 # ============================================================
-#  Kumpulkan folder yang akan diproses
+#  Collect folders to process
 # ============================================================
 ROOTS=("${@:-.}")
 TARGET_DIRS=()
@@ -318,7 +318,7 @@ TARGET_DIRS=()
 if [ "$RECURSIVE" -eq 1 ]; then
   for root in "${ROOTS[@]}"; do
     if [ ! -d "$root" ]; then
-      echo "⚠️  Folder tidak ditemukan, dilewati: $root"
+      echo "⚠️  Folder not found, skipping: $root"
       continue
     fi
     while IFS= read -r -d '' d; do
@@ -330,37 +330,37 @@ if [ "$RECURSIVE" -eq 1 ]; then
 else
   for root in "${ROOTS[@]}"; do
     if [ ! -d "$root" ]; then
-      echo "⚠️  Folder tidak ditemukan, dilewati: $root"
+      echo "⚠️  Folder not found, skipping: $root"
       continue
     fi
     if folder_has_image "$root"; then
       TARGET_DIRS+=("$root")
     else
-      echo "⏭️  Tidak ada gambar langsung di: $root  (pakai -r untuk menyertakan subfolder)"
+      echo "⏭️  No images directly inside: $root  (use -r to include subfolders)"
     fi
   done
 fi
 
 if [ ${#TARGET_DIRS[@]} -eq 0 ]; then
-  echo "❌ Tidak ada folder dengan gambar (PNG/JPG/JPEG/WebP) yang ditemukan."
-  echo "   Tip: coba tambahkan -r untuk mencari sampai ke subfolder."
+  echo "❌ No folders containing images (PNG/JPG/JPEG/WebP) were found."
+  echo "   Tip: try adding -r to search subfolders."
   exit 1
 fi
 
-echo "🗂️  Total folder yang akan diproses: ${#TARGET_DIRS[@]}"
+echo "🗂️  Total folders to process: ${#TARGET_DIRS[@]}"
 printf '   - %s\n' "${TARGET_DIRS[@]}"
 echo "🎚️  Quality PNG  : $PNG_QUALITY"
 echo "🎚️  Quality JPG  : $JPG_QUALITY"
 echo "🎚️  Quality WebP : $WEBP_QUALITY"
 if [ "$MAX_BYTES" -gt 0 ]; then
-  echo "🎯 Batas ukuran per file: $(hsize "$MAX_BYTES")"
+  echo "🎯 Size limit per file: $(hsize "$MAX_BYTES")"
 else
-  echo "🎯 Batas ukuran per file: nonaktif"
+  echo "🎯 Size limit per file: disabled"
 fi
 if [ "$DELETE_ORIGINAL" -eq 1 ]; then
-  echo "🗑️  Hapus file asli: AKTIF (hanya file yang sukses & mencapai batas; pakai -k untuk menonaktifkan)"
+  echo "🗑️  Delete original files: ENABLED (only successful files within the limit; use -k to disable)"
 else
-  echo "🗑️  Hapus file asli: NONAKTIF (file asli dipertahankan)"
+  echo "🗑️  Delete original files: DISABLED (original files are kept)"
 fi
 echo ""
 
@@ -371,9 +371,9 @@ JOBS=$(nproc 2>/dev/null || echo 2)
 for dir in "${TARGET_DIRS[@]}"; do
   count=$(find "$dir" -maxdepth 1 -type f "${IMG_FIND[@]}" | wc -l)
   echo "──────────────────────────────────────────"
-  echo "📂 Folder input  : $dir"
-  echo "📦 Folder output : $dir/compressed"
-  echo "🔢 Jumlah file   : $count"
+  echo "📂 Input folder  : $dir"
+  echo "📦 Output folder : $dir/compressed"
+  echo "🔢 File count    : $count"
   echo ""
 
   : > "$STATS_FILE"
@@ -381,25 +381,25 @@ for dir in "${TARGET_DIRS[@]}"; do
 
   read -r b a < <(awk '{ b += $1; a += $2 } END { printf "%d %d\n", b, a }' "$STATS_FILE")
   echo ""
-  echo "📊 Ukuran sebelum : $(hsize "$b")"
-  echo "📊 Ukuran sesudah : $(hsize "$a")"
+  echo "📊 Size before : $(hsize "$b")"
+  echo "📊 Size after  : $(hsize "$a")"
   echo ""
   TOTAL_BEFORE=$((TOTAL_BEFORE + b))
   TOTAL_AFTER=$((TOTAL_AFTER + a))
 done
 
 echo "════════════════════════════════════════"
-echo "🎉 Selesai! Total ${#TARGET_DIRS[@]} folder diproses."
-echo "📊 Total ukuran sebelum : $(hsize "$TOTAL_BEFORE")"
-echo "📊 Total ukuran sesudah : $(hsize "$TOTAL_AFTER")"
+echo "🎉 Done! Processed ${#TARGET_DIRS[@]} folders in total."
+echo "📊 Total size before : $(hsize "$TOTAL_BEFORE")"
+echo "📊 Total size after  : $(hsize "$TOTAL_AFTER")"
 
 if [ -s "$FAIL_FILE" ]; then
   n=$(wc -l < "$FAIL_FILE")
   echo ""
-  echo "❌ $n file masih di atas batas $(hsize "$MAX_BYTES"):"
+  echo "❌ $n files are still over the $(hsize "$MAX_BYTES") limit:"
   sed 's/^/   - /' "$FAIL_FILE"
   if [ -z "$IM" ]; then
-    echo "   Install ImageMagick (sudo pacman -S imagemagick) agar resolusi bisa diperkecil otomatis."
+    echo "   Install ImageMagick (sudo pacman -S imagemagick) to reduce resolution automatically."
   fi
   exit 2
 fi
