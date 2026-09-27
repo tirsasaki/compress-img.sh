@@ -310,7 +310,7 @@ export PNG_QUALITY JPG_QUALITY WEBP_QUALITY MAX_BYTES DELETE_ORIGINAL \
        STATS_FILE FAIL_FILE TMP_ROOT IM SCALES
 
 # ============================================================
-#  Collect folders to process
+#  ( Collect folders to process )
 # ============================================================
 ROOTS=("${@:-.}")
 TARGET_DIRS=()
