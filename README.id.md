@@ -11,181 +11,141 @@
 
 <p align="center"><b>🇮🇩 Bahasa Indonesia</b> · <a href="README.md">English</a></p>
 
-Script Bash untuk mengompres banyak gambar **PNG, JPG/JPEG, dan WebP** secara paralel. Setiap file diusahakan berada di bawah batas ukuran yang ditentukan (default **2 MB**) tanpa pernah menyimpan hasil yang lebih besar daripada file asli.
+**compress-img.sh** memampatkan setiap gambar di sebuah folder hingga di bawah batas ukuran pilihanmu (default **2 MB**) — secara paralel, memakai semua core CPU — dan tidak pernah menghasilkan file yang lebih besar dari aslinya.
+
+Taruh saja folder berisi screenshot, hasil ekspor, atau gambar upload; kamu dapat kembali folder `compressed/` yang siap untuk web.
 
 ## ✨ Fitur
 
-- Memproses PNG, JPG/JPEG, dan WebP dalam satu perintah
-- Menargetkan ukuran maksimum per file melalui opsi `-m`
-- Menurunkan kualitas dan, jika perlu, resolusi secara bertahap sampai batas ukuran tercapai
-- Memilih hasil terkecil dari seluruh percobaan; jika tidak ada hasil yang lebih kecil, file asli disalin apa adanya
-- Memproses file secara paralel menggunakan semua core CPU yang tersedia
-- Mendukung banyak folder dan pencarian subfolder secara rekursif
-- Menyimpan hasil di subfolder `compressed/` tanpa menimpa file sumber
-- Dapat menghapus file sumber hanya setelah output berhasil dibuat dan memenuhi batas ukuran yang aktif
-- Menampilkan statistik ukuran per file, per folder, dan keseluruhan
+- **Target ukuran per file** — terus berusaha (turunkan kualitas → turunkan resolusi) sampai tiap file muat di bawah `-m`
+- **Hasil terbaik selalu menang** — kandidat terkecil dari semua percobaan yang disimpan; file yang tidak bisa menyusut disalin apa adanya
+- **Paralel secara default** — satu worker per core CPU via `xargs -P`
+- **PNG · JPG/JPEG · WebP** dalam satu perintah, masing-masing dengan kompresor terbaik di kelasnya (`pngquant`, `jpegoptim`, `cwebp`)
+- **Aman secara desain** — file asli hanya dihapus setelah hasil terverifikasi tersimpan dan memenuhi batas (matikan dengan `-k`)
+- **Mode rekursif** (`-r`) untuk seluruh pohon direktori; folder `compressed/` yang sudah ada tidak pernah diproses ulang
+- **Laporan jujur** — penghematan per file, total per folder, dan daftar file yang gagal memenuhi batas
 
-## ⚡ Mulai Cepat
+## ⚡ Mulai cepat
 
 ```bash
 git clone https://github.com/tirsasaki/compress-img.sh.git
 cd compress-img.sh
 chmod +x compress-img.sh
 
-# Kompres semua gambar di ./foto (maks. 2 MB per file) ke ./foto/compressed
-./compress-img.sh ./foto
+# instal kompresor (contoh Arch)
+sudo pacman -S pngquant jpegoptim libwebp imagemagick
+
+# kompres semua gambar di ./photos → ./photos/compressed
+./compress-img.sh ./photos
 ```
 
-Opsional, pasang ke `$PATH`:
+Mau tersedia di `$PATH`?
 
 ```bash
 sudo install -m 755 compress-img.sh /usr/local/bin/compress-img
 ```
 
-> [!NOTE]
-> Pasang dulu [tool yang dibutuhkan](#-persyaratan). Contoh di Debian/Ubuntu: `sudo apt install pngquant jpegoptim webp imagemagick`.
+## 📦 Kebutuhan
 
-## 📦 Persyaratan
-
-Script ini tidak bergantung pada distribusi tertentu dan dapat berjalan di sistem Linux apa pun yang menyediakan perintah yang dibutuhkan. Script tidak terikat pada package manager tertentu.
-
-### Perintah runtime
-
-- Bash 4 atau lebih baru
-- GNU Coreutils: `stat`, `numfmt`, `nproc`, dan `mktemp`
-- GNU Findutils: `find` dan `xargs`
-- Implementasi `awk`
-
-Distribusi minimal dan container mungkin mengharuskan utilitas ini dipasang secara eksplisit. Pada sebagian besar distribusi desktop dan server, utilitas tersebut sudah tersedia.
-
-### Perintah kompresi gambar
-
-Pasang kompresor untuk setiap format yang ingin diproses:
-
-| Format | Perintah wajib | Proyek |
+| Kebutuhan | Fungsi | Contoh instalasi |
 |---|---|---|
-| PNG | `pngquant` | [`pngquant`](https://pngquant.org/) |
-| JPG/JPEG | `jpegoptim` | [`jpegoptim`](https://github.com/tjko/jpegoptim) |
-| WebP | `cwebp` | [`libwebp`](https://developers.google.com/speed/webp/docs/cwebp) |
+| `bash` ≥ 4, `coreutils`, `findutils`, `awk` | runtime script | umumnya sudah terinstal |
+| `pngquant` | kompresi PNG | `sudo pacman -S pngquant` / `sudo apt install pngquant` |
+| `jpegoptim` | kompresi JPG/JPEG | `sudo pacman -S jpegoptim` / `sudo apt install jpegoptim` |
+| `cwebp` (`libwebp`) | kompresi WebP | `sudo pacman -S libwebp` / `sudo apt install webp` |
+| `imagemagick` *(opsional, disarankan)* | fallback penurunan resolusi | `sudo pacman -S imagemagick` / `sudo apt install imagemagick` |
 
-Jika kompresor tidak tersedia, script tetap berjalan tetapi melewati file dengan format terkait.
-
-[`ImageMagick`](https://imagemagick.org/) bersifat opsional tetapi direkomendasikan. Perintah `magick` atau `convert` versi lama digunakan sebagai langkah terakhir untuk memperkecil resolusi apabila penurunan kualitas belum mencapai batas `-m`. Tanpa ImageMagick, file yang masih melampaui batas dipertahankan di lokasi sumber dan dilaporkan tidak memenuhi batas.
+Kompresor tidak ada? Script memberi peringatan dan format tersebut dilewati saja. ImageMagick tidak ada? Kualitas tetap diturunkan, hanya langkah penurunan resolusi yang tidak tersedia.
 
 <details>
-<summary><b>Nama paket & perintah instalasi per distribusi</b></summary>
-
-Nama paket berbeda antar-keluarga distribusi:
-
-| Keluarga distribusi | PNG | JPG/JPEG | Tool WebP | Fallback resize |
-|---|---|---|---|---|
-| Debian, Ubuntu, Linux Mint, Pop!_OS | `pngquant` | `jpegoptim` | `webp` | `imagemagick` |
-| Fedora, RHEL, Rocky Linux, AlmaLinux | `pngquant` | `jpegoptim` | `libwebp-tools` | `ImageMagick` |
-| Arch Linux, Manjaro, EndeavourOS | `pngquant` | `jpegoptim` | `libwebp` | `imagemagick` |
-| openSUSE | `pngquant` | `jpegoptim` | `libwebp-tools` | `ImageMagick` |
-| Alpine Linux | `pngquant` | `jpegoptim` | `libwebp-tools` | `imagemagick` |
-
-Pasang semua kompresor dan fallback resize yang direkomendasikan dengan perintah untuk distribusi Anda:
+<summary><b>📋 Perintah instalasi lengkap per distribusi</b></summary>
 
 ```bash
-# Debian / Ubuntu dan turunannya
-sudo apt update
-sudo apt install bash coreutils findutils gawk pngquant jpegoptim webp imagemagick
+# Debian / Ubuntu / Mint / Pop!_OS
+sudo apt update && sudo apt install bash coreutils findutils gawk pngquant jpegoptim webp imagemagick
 
-# Fedora, atau RHEL/Rocky/Alma setelah mengaktifkan repository yang diperlukan
+# Fedora / RHEL / Rocky / Alma (mungkin butuh EPEL untuk pngquant/jpegoptim)
 sudo dnf install bash coreutils findutils gawk pngquant jpegoptim libwebp-tools ImageMagick
 
-# Arch Linux / Manjaro dan turunannya
+# Arch / Manjaro / EndeavourOS / CachyOS
 sudo pacman -S bash coreutils findutils gawk pngquant jpegoptim libwebp imagemagick
 
 # openSUSE
 sudo zypper install bash coreutils findutils gawk pngquant jpegoptim libwebp-tools ImageMagick
 
-# Alpine Linux (aktifkan repository community jika ada paket yang tidak tersedia)
+# Alpine (aktifkan repo community bila perlu)
 sudo apk add bash coreutils findutils gawk pngquant jpegoptim libwebp-tools imagemagick
 ```
 
-Pada RHEL dan distribusi enterprise yang kompatibel, `pngquant` atau `jpegoptim` mungkin memerlukan repository tambahan seperti EPEL. Pada openSUSE Leap, beberapa tool gambar mungkin memerlukan repository graphics. Ketersediaan paket dapat berbeda menurut versi distribusi.
-
-Untuk distribusi lain yang tidak tercantum, gunakan pencarian paketnya untuk menemukan paket yang menyediakan `pngquant`, `jpegoptim`, dan `cwebp`. Script memeriksa ketersediaan perintah, bukan nama distribusi, sehingga build dari source dan package manager alternatif juga dapat digunakan.
-
-Verifikasi instalasi:
+Verifikasi:
 
 ```bash
-command -v bash find xargs awk stat numfmt nproc
-command -v pngquant jpegoptim cwebp
-command -v magick || command -v convert  # fallback resize opsional
+command -v pngquant jpegoptim cwebp && { command -v magick || command -v convert; }
 ```
 
 </details>
 
-## 🛠️ Cara pakai
+## 🛠️ Penggunaan
 
 ```text
-./compress-img.sh [-q min-max] [-j quality] [-w quality] [-m MB] [-r] [-d] [folder ...]
+./compress-img.sh [-q min-max] [-j quality] [-w quality] [-m MB] [-r] [-k] [-d] [folder ...]
 ```
 
-Jika tidak ada folder yang diberikan, script memproses folder saat ini (`.`).
+Tanpa argumen folder → memproses direktori saat ini.
 
-### Opsi
-
-| Opsi | Deskripsi | Default |
+| Opsi | Keterangan | Default |
 |---|---|---|
-| `-q min-max` | Rentang kualitas awal `pngquant` untuk PNG | `85-95` |
-| `-j quality` | Kualitas awal `jpegoptim` untuk JPG/JPEG, `1-100` | `85` |
-| `-w quality` | Kualitas awal `cwebp` untuk WebP, `1-100` | `85` |
-| `-m MB` | Batas ukuran maksimum tiap file dalam MB; boleh desimal, gunakan `0` untuk menonaktifkan batas | `2` |
-| `-r` | Cari semua subfolder yang berisi gambar; subfolder `compressed/` dilewati | nonaktif |
-| `-d` | Hapus file sumber setelah output tersimpan dan memenuhi batas ukuran yang aktif | nonaktif |
+| `-q min-max` | Rentang kualitas `pngquant` untuk PNG, mis. `70-90` | `85-95` |
+| `-j quality` | Kualitas `jpegoptim` untuk JPG/JPEG, `1–100` | `85` |
+| `-w quality` | Kualitas `cwebp` untuk WebP, `1–100` | `85` |
+| `-m MB` | Batas ukuran per file dalam MB (desimal boleh, mis. `1.5`); `0` menonaktifkan batas | `2` |
+| `-r` | Rekursif: proses setiap subfolder yang berisi gambar | mati |
+| `-k` | Simpan file asli — jangan pernah hapus file sumber | mati |
+| `-d` | Hapus file asli setelah sukses (sudah default; dipertahankan untuk kompatibilitas) | — |
 | `-h` | Tampilkan bantuan | — |
 
-> [!WARNING]
-> `-d` menghapus file sumber secara permanen. Coba dulu tanpa `-d` pada folder kecil.
+> [!IMPORTANT]
+> **File asli dihapus secara default** setelah berhasil dikompres, tersimpan di `compressed/`, dan memenuhi batas `-m`. File yang gagal atau masih di atas batas **tidak pernah** dihapus. Gunakan `-k` untuk selalu menyimpan file aslimu.
 
-Nilai `-m` dihitung sebagai MiB (`1 MB = 1024 × 1024 byte`). Saat batas aktif, target internal JPG/JPEG dan WebP dibuat sebesar 95% dari batas untuk memberi sedikit margin.
+Batas `-m` dihitung dalam MiB (`1 MB = 1024 × 1024 byte`). Secara internal, target JPG/WebP diset ke 95% dari batas sebagai margin aman.
 
-### Contoh
+## 💡 Contoh
 
 ```bash
-# Folder saat ini, batas default 2 MB per file
+# Folder saat ini, batas 2 MB
 ./compress-img.sh
 
-# Banyak folder sekaligus
-./compress-img.sh ./foto ./banner ./icon
+# Beberapa folder sekaligus
+./compress-img.sh ./photos ./banners ./icons
 
-# Batas maksimum 1,5 MB per file
-./compress-img.sh -m 1.5 ./foto
+# Batas ketat 1,5 MB (mis. syarat upload)
+./compress-img.sh -m 1.5 ./photos
 
-# Kualitas awal khusus untuk setiap format
-./compress-img.sh -q 70-90 -j 80 -w 80 ./foto
+# Kualitas awal lebih rendah agar file lebih kecil, file asli disimpan
+./compress-img.sh -k -q 70-90 -j 80 -w 80 ./photos
 
-# Semua subfolder di dalam ./assets
-./compress-img.sh -r ./assets
+# Seluruh pohon direktori, hapus file asli hanya bila target 1 MB tercapai
+./compress-img.sh -m 1 -r ./assets
 
-# Rekursif dan hapus sumber yang berhasil memenuhi batas 1 MB
-./compress-img.sh -m 1 -r -d ./assets
-
-# Nonaktifkan batas ukuran; hanya lakukan kompresi kualitas awal
-./compress-img.sh -m 0 ./foto
+# Tanpa batas ukuran — hanya satu putaran kompresi kualitas
+./compress-img.sh -m 0 ./photos
 ```
 
 ## ⚙️ Cara kerja
 
-Untuk setiap file, script:
+Untuk setiap file, script menjalankan serangkaian percobaan dan **berhenti segera setelah hasilnya memenuhi batas**:
 
-1. mencoba kompresi dengan kualitas yang diberikan melalui `-q`, `-j`, atau `-w`;
-2. jika masih di atas `-m`, menurunkan kualitas secara bertahap atau memakai mode target-size;
-3. jika masih terlalu besar dan ImageMagick tersedia, mencoba skala resolusi `85%`, `70%`, `60%`, `50%`, `40%`, `30%`, lalu `20%`;
-4. menyimpan kandidat terkecil ke `compressed/`, atau menyalin file asli apabila tidak ada kandidat yang lebih kecil.
+1. **Kualitas awal** — kompres dengan pengaturan `-q` / `-j` / `-w` milikmu.
+2. **Turunkan kualitas** — kualitas diturunkan bertahap (atau memakai mode target-size bawaan kompresor).
+3. **Turunkan resolusi** — bila ImageMagick tersedia, coba `85% → 70% → 60% → 50% → 40% → 30% → 20%` dari dimensi asli.
+4. **Ambil yang terbaik** — kandidat terkecil menang dan disimpan di `compressed/`. Bila tidak ada yang mengalahkan aslinya, file asli disalin apa adanya.
 
-Pemrosesan berhenti lebih awal segera setelah kandidat terbaik sudah memenuhi batas. Dengan `-m 0`, tahap penurunan kualitas lanjutan dan resize tidak dijalankan.
+## 📁 Hasil
 
-## 📁 Struktur output
-
-Setiap folder input memperoleh subfolder `compressed/` sendiri:
+Setiap folder input mendapat subfolder `compressed/` sendiri — file sumber tidak pernah ditimpa di tempat:
 
 ```text
-foto/
+photos/
 ├── banner.png
 ├── logo.jpg
 ├── icon.webp
@@ -195,45 +155,48 @@ foto/
     └── icon.webp
 ```
 
-File yang sudah ada dengan nama sama di `compressed/` akan diganti. Dalam mode rekursif, direktori bernama `compressed` beserta isinya tidak diproses kembali.
+Dalam mode rekursif, folder bernama `compressed` dilewati secara otomatis.
 
-## ⚠️ Penghapusan file dan status keluar
+## 🛡️ Keamanan & kode keluar
 
-- Tanpa `-d`, file sumber selalu dipertahankan.
-- Dengan `-d`, file sumber hanya dihapus jika output nonkosong sudah tersimpan dan tidak melebihi batas `-m` yang aktif.
-- File yang tidak mencapai batas tidak pernah dihapus dan dicantumkan dalam ringkasan kegagalan.
-- Dengan `-m 0`, tidak ada batas ukuran yang harus dipenuhi; karena itu `-d` akan menghapus sumber setelah output berhasil disimpan, termasuk ketika file disalin apa adanya karena sudah optimal.
-- Script keluar dengan status `2` jika ada file yang masih di atas batas, dan status `1` untuk input/opsi tidak valid atau ketika tidak ada folder berisi gambar yang ditemukan.
+- File sumber dihapus **hanya** bila hasilnya tersimpan, tidak kosong, dan memenuhi batas `-m` yang aktif.
+- Dengan `-m 0` (tanpa batas), setiap hasil tersimpan dianggap sukses — uji dulu dengan `-k`.
+- **Keluar `0`** — semua file diproses dalam batas.
+- **Keluar `2`** — ada file yang tetap di atas batas (dicantumkan di akhir; tidak dihapus).
+- **Keluar `1`** — opsi tidak valid, atau tidak ada folder berisi gambar yang ditemukan.
 
-Sebaiknya uji tanpa `-d` pada folder kecil sebelum menghapus banyak file sumber.
-
-## 📊 Contoh output
+## 📊 Contoh keluaran
 
 ```text
-🗂️  Total folder yang akan diproses: 1
-   - ./foto
+🗂️  Total folders to process: 1
+   - ./photos
 🎚️  Quality PNG  : 85-95
 🎚️  Quality JPG  : 85
 🎚️  Quality WebP : 85
-🎯 Batas ukuran per file: 2.0MB
+🎯 Size limit per file: 2.0MB
+🗑️  Delete original files: ENABLED (only successful files within the limit; use -k to disable)
 
 ──────────────────────────────────────────
-📂 Folder input  : ./foto
-📦 Folder output : ./foto/compressed
-🔢 Jumlah file   : 3
+📂 Input folder  : ./photos
+📦 Output folder : ./photos/compressed
+🔢 File count    : 3
 
-✅ banner.png  3.2MB → 1.8MB (-44%) · kualitas diturunkan
-✅ logo.jpg  4.1MB → 1.9MB (-54%)
-✅ icon.webp  900KB → 420KB (-53%)
+✅ banner.png  3.2MB → 1.8MB (-44%) · quality lowered
+✅ logo.jpg    4.1MB → 1.9MB (-54%)
+✅ icon.webp   900KB → 420KB (-53%)
 
-📊 Ukuran sebelum : 8.2MB
-📊 Ukuran sesudah : 4.1MB
+📊 Size before : 8.2MB
+📊 Size after  : 4.1MB
 
 ════════════════════════════════════════
-🎉 Selesai! Total 1 folder diproses.
-📊 Total ukuran sebelum : 8.2MB
-📊 Total ukuran sesudah : 4.1MB
+🎉 Done! Processed 1 folders in total.
+📊 Total size before : 8.2MB
+📊 Total size after  : 4.1MB
 ```
+
+## 🤝 Kontribusi
+
+Issue dan pull request sangat diterima. Script ini satu file mandiri — usahakan tetap ringan dan minim dependensi.
 
 ## 📄 Lisensi
 

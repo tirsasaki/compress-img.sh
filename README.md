@@ -11,110 +11,76 @@
 
 <p align="center"><a href="README.id.md">🇮🇩 Bahasa Indonesia</a> · <b>English</b></p>
 
-A Bash script for compressing **PNG, JPG/JPEG, and WebP** images in parallel. It tries to bring every file below a configurable size limit (**2 MB** by default) and never saves a result larger than the original.
+**compress-img.sh** squeezes every image in a folder below a size limit you choose (**2 MB** by default) — in parallel, across all your CPU cores — and never produces a file bigger than the original.
+
+Drop a folder of screenshots, exports, or uploads on it; get a `compressed/` folder back with everything web-ready.
 
 ## ✨ Features
 
-- Processes PNG, JPG/JPEG, and WebP in one command
-- Targets a maximum per-file size with the `-m` option
-- Progressively lowers quality and, when needed, resolution until the size limit is met
-- Keeps the smallest attempted result; if none is smaller, copies the original unchanged
-- Processes files in parallel using all available CPU cores
-- Supports multiple folders and recursive subfolder discovery
-- Writes results to a separate `compressed/` subfolder without overwriting source files
-- Can delete a source file only after its output is saved and meets the active size limit
-- Reports size statistics per file, per folder, and for the full run
+- **Target size per file** — keep going (lower quality → lower resolution) until each file fits under `-m`
+- **Best of every attempt** — the smallest candidate always wins; files that can't shrink are copied unchanged
+- **Parallel by default** — one worker per CPU core via `xargs -P`
+- **PNG · JPG/JPEG · WebP** in a single run, each with its best-in-class compressor (`pngquant`, `jpegoptim`, `cwebp`)
+- **Non-destructive by design** — originals are only removed after a verified, in-limit result is saved (opt out with `-k`)
+- **Recursive mode** (`-r`) for whole directory trees; existing `compressed/` folders are never re-processed
+- **Honest reporting** — per-file savings, per-folder totals, and a failure list for files that stayed over the limit
 
-## ⚡ Quick Start
+## ⚡ Quick start
 
 ```bash
 git clone https://github.com/tirsasaki/compress-img.sh.git
 cd compress-img.sh
 chmod +x compress-img.sh
 
-# Compress every image in ./photos (max 2 MB each) into ./photos/compressed
+# install the compressors (Arch example)
+sudo pacman -S pngquant jpegoptim libwebp imagemagick
+
+# compress everything in ./photos → ./photos/compressed
 ./compress-img.sh ./photos
 ```
 
-Optionally, install it on your `$PATH`:
+Want it on your `$PATH`?
 
 ```bash
 sudo install -m 755 compress-img.sh /usr/local/bin/compress-img
 ```
 
-> [!NOTE]
-> Install the [required tools](#-requirements) first. On Debian/Ubuntu, for example: `sudo apt install pngquant jpegoptim webp imagemagick`.
-
 ## 📦 Requirements
 
-The script is distribution-independent and works on any Linux system that provides the required commands. It does not depend on a specific package manager.
-
-### Runtime commands
-
-- Bash 4 or newer
-- GNU Coreutils: `stat`, `numfmt`, `nproc`, and `mktemp`
-- GNU Findutils: `find` and `xargs`
-- An `awk` implementation
-
-Minimal distributions and containers may require these utilities to be installed explicitly. On most desktop and server distributions they are already available.
-
-### Image compression commands
-
-Install the compressor for every format you want to process:
-
-| Format | Required command | Project |
+| What | Why | Install (examples) |
 |---|---|---|
-| PNG | `pngquant` | [`pngquant`](https://pngquant.org/) |
-| JPG/JPEG | `jpegoptim` | [`jpegoptim`](https://github.com/tjko/jpegoptim) |
-| WebP | `cwebp` | [`libwebp`](https://developers.google.com/speed/webp/docs/cwebp) |
+| `bash` ≥ 4, `coreutils`, `findutils`, `awk` | script runtime | preinstalled on most distros |
+| `pngquant` | PNG compression | `sudo pacman -S pngquant` / `sudo apt install pngquant` |
+| `jpegoptim` | JPG/JPEG compression | `sudo pacman -S jpegoptim` / `sudo apt install jpegoptim` |
+| `cwebp` (`libwebp`) | WebP compression | `sudo pacman -S libwebp` / `sudo apt install webp` |
+| `imagemagick` *(optional, recommended)* | resolution-downscale fallback | `sudo pacman -S imagemagick` / `sudo apt install imagemagick` |
 
-If a compressor is unavailable, the script continues but skips files in the corresponding format.
-
-[`ImageMagick`](https://imagemagick.org/) is optional but recommended. Its `magick` or legacy `convert` command is used as a final fallback to reduce image dimensions when lowering quality is not enough to reach the `-m` limit. Without it, files that remain above the limit are retained at their source location and reported as not meeting the limit.
+Missing a compressor? The script warns you and simply skips that format. Missing ImageMagick? Quality is still lowered, but the resolution fallback step is unavailable.
 
 <details>
-<summary><b>Package names & install commands per distribution</b></summary>
-
-Package names differ between distribution families:
-
-| Distribution family | PNG | JPG/JPEG | WebP tools | Resize fallback |
-|---|---|---|---|---|
-| Debian, Ubuntu, Linux Mint, Pop!_OS | `pngquant` | `jpegoptim` | `webp` | `imagemagick` |
-| Fedora, RHEL, Rocky Linux, AlmaLinux | `pngquant` | `jpegoptim` | `libwebp-tools` | `ImageMagick` |
-| Arch Linux, Manjaro, EndeavourOS | `pngquant` | `jpegoptim` | `libwebp` | `imagemagick` |
-| openSUSE | `pngquant` | `jpegoptim` | `libwebp-tools` | `ImageMagick` |
-| Alpine Linux | `pngquant` | `jpegoptim` | `libwebp-tools` | `imagemagick` |
-
-Install all compressors and the recommended resize fallback with the command for your distribution:
+<summary><b>📋 Full install commands per distribution</b></summary>
 
 ```bash
-# Debian / Ubuntu and derivatives
-sudo apt update
-sudo apt install bash coreutils findutils gawk pngquant jpegoptim webp imagemagick
+# Debian / Ubuntu / Mint / Pop!_OS
+sudo apt update && sudo apt install bash coreutils findutils gawk pngquant jpegoptim webp imagemagick
 
-# Fedora, or RHEL/Rocky/Alma after enabling the required repositories
+# Fedora / RHEL / Rocky / Alma (EPEL may be needed for pngquant/jpegoptim)
 sudo dnf install bash coreutils findutils gawk pngquant jpegoptim libwebp-tools ImageMagick
 
-# Arch Linux / Manjaro and derivatives
+# Arch / Manjaro / EndeavourOS / CachyOS
 sudo pacman -S bash coreutils findutils gawk pngquant jpegoptim libwebp imagemagick
 
 # openSUSE
 sudo zypper install bash coreutils findutils gawk pngquant jpegoptim libwebp-tools ImageMagick
 
-# Alpine Linux (enable the community repository if a package is unavailable)
+# Alpine (enable community repo if needed)
 sudo apk add bash coreutils findutils gawk pngquant jpegoptim libwebp-tools imagemagick
 ```
 
-On RHEL and compatible enterprise distributions, `pngquant` or `jpegoptim` may require an additional repository such as EPEL. On openSUSE Leap, some image tools may require the graphics repository. Package availability can differ by release.
-
-For any distribution not listed above, use its package search to find packages that provide `pngquant`, `jpegoptim`, and `cwebp`. The script checks command availability rather than the distribution name, so source builds and alternative package managers work as well.
-
-Verify the installation:
+Verify:
 
 ```bash
-command -v bash find xargs awk stat numfmt nproc
-command -v pngquant jpegoptim cwebp
-command -v magick || command -v convert  # optional resize fallback
+command -v pngquant jpegoptim cwebp && { command -v magick || command -v convert; }
 ```
 
 </details>
@@ -122,67 +88,61 @@ command -v magick || command -v convert  # optional resize fallback
 ## 🛠️ Usage
 
 ```text
-./compress-img.sh [-q min-max] [-j quality] [-w quality] [-m MB] [-r] [-d] [folder ...]
+./compress-img.sh [-q min-max] [-j quality] [-w quality] [-m MB] [-r] [-k] [-d] [folder ...]
 ```
 
-When no folder is given, the script processes the current directory (`.`).
-
-### Options
+No folder given → processes the current directory.
 
 | Option | Description | Default |
 |---|---|---|
-| `-q min-max` | Initial `pngquant` quality range for PNG | `85-95` |
-| `-j quality` | Initial `jpegoptim` quality for JPG/JPEG, `1-100` | `85` |
-| `-w quality` | Initial `cwebp` quality for WebP, `1-100` | `85` |
-| `-m MB` | Maximum size per file in MB; decimals are allowed, use `0` to disable the limit | `2` |
-| `-r` | Find every subfolder containing images; `compressed/` subfolders are skipped | off |
-| `-d` | Delete a source file after its output is saved and meets the active size limit | off |
+| `-q min-max` | `pngquant` quality range for PNG, e.g. `70-90` | `85-95` |
+| `-j quality` | `jpegoptim` quality for JPG/JPEG, `1–100` | `85` |
+| `-w quality` | `cwebp` quality for WebP, `1–100` | `85` |
+| `-m MB` | Max size per file in MB (decimals OK, e.g. `1.5`); `0` disables the limit | `2` |
+| `-r` | Recurse: process every subfolder that contains images | off |
+| `-k` | Keep originals — never delete source files | off |
+| `-d` | Delete originals after success (already the default; kept for compatibility) | — |
 | `-h` | Show help | — |
 
-> [!WARNING]
-> `-d` permanently deletes source files. Try it without `-d` on a small folder first.
+> [!IMPORTANT]
+> **Originals are deleted by default** once a file is compressed, saved to `compressed/`, and within the `-m` limit. Files that fail or stay over the limit are **never** deleted. Pass `-k` to always keep your originals.
 
-The `-m` value is calculated as MiB (`1 MB = 1024 × 1024 bytes`). With an active limit, the internal JPG/JPEG and WebP target is set to 95% of that limit to leave a small margin.
+The `-m` limit is measured in MiB (`1 MB = 1024 × 1024 bytes`). Internally, JPG/WebP target 95% of the limit to leave a safety margin.
 
-### Examples
+## 💡 Examples
 
 ```bash
-# Current directory, default 2 MB limit per file
+# Current folder, 2 MB limit
 ./compress-img.sh
 
-# Multiple directories at once
+# Several folders at once
 ./compress-img.sh ./photos ./banners ./icons
 
-# Maximum 1.5 MB per file
+# Strict 1.5 MB limit (e.g. upload constraints)
 ./compress-img.sh -m 1.5 ./photos
 
-# Custom initial quality for every format
-./compress-img.sh -q 70-90 -j 80 -w 80 ./photos
+# Lower initial quality for smaller files, keep originals
+./compress-img.sh -k -q 70-90 -j 80 -w 80 ./photos
 
-# Every subfolder inside ./assets
-./compress-img.sh -r ./assets
+# Whole tree, delete originals only where the 1 MB target was met
+./compress-img.sh -m 1 -r ./assets
 
-# Recurse and delete sources that successfully meet a 1 MB limit
-./compress-img.sh -m 1 -r -d ./assets
-
-# Disable the size limit; only perform the initial quality pass
+# No size limit — single quality pass only
 ./compress-img.sh -m 0 ./photos
 ```
 
 ## ⚙️ How it works
 
-For each file, the script:
+For every file, the script runs a ladder of attempts and **stops as soon as the result fits the limit**:
 
-1. tries compression at the quality supplied through `-q`, `-j`, or `-w`;
-2. if the result is still above `-m`, progressively lowers quality or uses the compressor's target-size mode;
-3. if the result is still too large and ImageMagick is available, tries resolution scales of `85%`, `70%`, `60%`, `50%`, `40%`, `30%`, and `20%`;
-4. saves the smallest candidate to `compressed/`, or copies the original when no candidate is smaller.
+1. **Initial quality** — compress with your `-q` / `-j` / `-w` setting.
+2. **Lower quality** — progressively reduce quality (or use the compressor's target-size mode).
+3. **Lower resolution** — if ImageMagick is present, try `85% → 70% → 60% → 50% → 40% → 30% → 20%` of the original dimensions.
+4. **Keep the best** — the smallest candidate wins and lands in `compressed/`. If nothing beat the original, the original is copied unchanged.
 
-Processing stops early as soon as the best candidate meets the limit. With `-m 0`, additional quality reduction and resizing are skipped.
+## 📁 Output
 
-## 📁 Output structure
-
-Each input directory gets its own `compressed/` subfolder:
+Each input folder gets its own `compressed/` subfolder — sources are never overwritten in place:
 
 ```text
 photos/
@@ -195,47 +155,51 @@ photos/
     └── icon.webp
 ```
 
-An existing file with the same name in `compressed/` is replaced. In recursive mode, directories named `compressed` and their contents are not processed again.
+In recursive mode, folders named `compressed` are skipped automatically.
 
-## ⚠️ Deletion and exit status
+## 🛡️ Safety & exit codes
 
-- Without `-d`, source files are always retained.
-- With `-d`, a source file is deleted only when a non-empty output has been saved and does not exceed the active `-m` limit.
-- Files that do not meet the limit are never deleted and are listed in the failure summary.
-- With `-m 0`, there is no size limit to meet, so `-d` removes the source after the output is saved—even when the file was copied unchanged because it was already optimal.
-- The script exits with status `2` if any file remains above the limit, and status `1` for invalid input/options or when no directory containing images is found.
+- A source file is deleted **only** when its output was saved, is non-empty, and meets the active `-m` limit.
+- With `-m 0` (no limit), any saved output counts as success — test with `-k` first.
+- **Exit `0`** — all files processed within the limit.
+- **Exit `2`** — some files stayed over the limit (listed at the end; never deleted).
+- **Exit `1`** — invalid options, or no folder containing images found.
 
-Test on a small directory without `-d` before deleting many source files.
-
-## 📊 Example output
-
-The script's runtime messages are currently in Indonesian:
+## 📊 Sample run
 
 ```text
-🗂️  Total folder yang akan diproses: 1
+🗂️  Total folders to process: 1
    - ./photos
 🎚️  Quality PNG  : 85-95
 🎚️  Quality JPG  : 85
 🎚️  Quality WebP : 85
-🎯 Batas ukuran per file: 2.0MB
+🎯 Size limit per file: 2.0MB
+🗑️  Delete original files: ENABLED (only successful files within the limit; use -k to disable)
 
 ──────────────────────────────────────────
-📂 Folder input  : ./photos
-📦 Folder output : ./photos/compressed
-🔢 Jumlah file   : 3
+📂 Input folder  : ./photos
+📦 Output folder : ./photos/compressed
+🔢 File count    : 3
 
-✅ banner.png  3.2MB → 1.8MB (-44%) · kualitas diturunkan
-✅ logo.jpg  4.1MB → 1.9MB (-54%)
-✅ icon.webp  900KB → 420KB (-53%)
+✅ banner.png  3.2MB → 1.8MB (-44%) · quality lowered
+✅ logo.jpg    4.1MB → 1.9MB (-54%)
+✅ icon.webp   900KB → 420KB (-53%)
 
-📊 Ukuran sebelum : 8.2MB
-📊 Ukuran sesudah : 4.1MB
+📊 Size before : 8.2MB
+📊 Size after  : 4.1MB
 
 ════════════════════════════════════════
-🎉 Selesai! Total 1 folder diproses.
-📊 Total ukuran sebelum : 8.2MB
-📊 Total ukuran sesudah : 4.1MB
+🎉 Done! Processed 1 folders in total.
+📊 Total size before : 8.2MB
+📊 Total size after  : 4.1MB
 ```
+
+> [!NOTE]
+> Runtime messages are currently in Indonesian; the script logic and this README are language-independent.
+
+## 🤝 Contributing
+
+Issues and pull requests are welcome. The script is a single self-contained file — keep it dependency-light and POSIX-friendly where possible.
 
 ## 📄 License
 
